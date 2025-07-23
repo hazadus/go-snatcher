@@ -3,6 +3,7 @@ package data
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -69,11 +70,17 @@ func (d *AppData) AddTrack(track TrackMetadata) {
 
 // SaveData сохраняет данные в файл
 func (d *AppData) SaveData(filePath string) error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+	path := strings.Replace(filePath, "~", home, 1)
+
 	data, err := yaml.Marshal(d)
 	if err != nil {
 		return fmt.Errorf("ошибка сериализации данных: %w", err)
 	}
-	if err := os.WriteFile(filePath, data, 0644); err != nil {
+	if err := os.WriteFile(path, data, 0644); err != nil {
 		return fmt.Errorf("ошибка записи файла данных: %w", err)
 	}
 	return nil

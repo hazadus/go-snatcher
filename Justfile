@@ -2,7 +2,7 @@ run:
   go run cmd/snatcher/main.go
 
 build:
-  go build -o ./bin/snatcher cmd/snatcher/main.go
+  go build -o ./bin/snatcher cmd/snatcher/*.go
 
 format:
   go fmt ./...

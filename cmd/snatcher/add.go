@@ -12,6 +12,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/spf13/cobra"
+
+	"github.com/hazadus/go-snatcher/internal/data"
 )
 
 var addCmd = &cobra.Command{
@@ -137,7 +139,36 @@ func uploadToS3(filePath string) {
 	}
 
 	fmt.Printf("\n✅ Файл успешно загружен в S3!\n")
-	fmt.Printf("   URL: s3://%s/%s\n", cfg.AwsBucketName, s3Key)
+	url := fmt.Sprintf("%s/%s/%s", cfg.AwsEndpoint, cfg.AwsBucketName, s3Key)
+	fmt.Printf("   URL: %s\n", url)
+
+	// Получаем реальные метаданные трека
+	fileForMeta, err := os.Open(filePath)
+	if err != nil {
+		log.Printf("Ошибка открытия файла для метаданных: %v", err)
+	}
+	defer fileForMeta.Close()
+
+	meta := getMetadataFromReader(fileForMeta, filePath)
+
+	track := data.TrackMetadata{
+		Artist:   meta.Artist,
+		Title:    meta.Title,
+		Album:    meta.Album,
+		Length:   0, // TODO: Получить длительность трека
+		FileSize: fileSize,
+		URL:      url,
+	}
+
+	// Добавляем трек
+	appData.AddTrack(track)
+
+	// Сохраняем данные
+	if err := appData.SaveData(defaultDataFilePath); err != nil {
+		fmt.Printf("\n❌ Ошибка сохранения данных: %v\n", err)
+	} else {
+		fmt.Printf("\n📦 Данные трека добавлены в %s\n", defaultDataFilePath)
+	}
 }
 
 // ProgressReader структура для отслеживания прогресса чтения
