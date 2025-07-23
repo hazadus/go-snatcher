@@ -6,14 +6,17 @@ import (
 	"os"
 
 	"github.com/hazadus/go-snatcher/internal/config"
+	"github.com/hazadus/go-snatcher/internal/data"
 )
 
 const (
-	defaultConfigPath = "~/.snatcher"
+	defaultConfigPath   = "~/.snatcher"
+	defaultDataFilePath = "~/.snatcher_data"
 )
 
 var (
-	cfg *config.Config
+	cfg     *config.Config
+	appData *data.AppData
 )
 
 func init() {
@@ -27,8 +30,13 @@ func main() {
 	if cfg, err = config.LoadConfig(defaultConfigPath); err != nil {
 		log.Fatalf("Ошибка загрузки конфигурации: %v", err)
 	}
-
 	fmt.Println("Используется бакет:", cfg.AwsBucketName)
+
+	// Инициализируем структуру данных приложения
+	appData = data.NewAppData()
+	if err := appData.LoadData(defaultDataFilePath); err != nil {
+		log.Fatalf("Ошибка загрузки данных приложения: %v", err)
+	}
 
 	execute()
 }
