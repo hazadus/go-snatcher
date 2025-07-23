@@ -21,6 +21,7 @@ var (
 
 func init() {
 	rootCmd.AddCommand(addCmd)
+	rootCmd.AddCommand(listCmd)
 }
 
 func main() {

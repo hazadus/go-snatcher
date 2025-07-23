@@ -31,7 +31,13 @@ func NewAppData() *AppData {
 
 // LoadData загружает данные из файла
 func (d *AppData) LoadData(filePath string) error {
-	data, err := os.ReadFile(filePath)
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+	path := strings.Replace(filePath, "~", home, 1)
+
+	data, err := os.ReadFile(path)
 	if err != nil {
 		// Если файл не найден, инициализируем пустыми данными
 		if os.IsNotExist(err) {
