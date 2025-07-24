@@ -39,7 +39,6 @@ func main() {
 	if cfg, err = config.LoadConfig(defaultConfigPath); err != nil {
 		log.Fatalf("Ошибка загрузки конфигурации: %v", err)
 	}
-	fmt.Println("Используется бакет:", cfg.AwsBucketName)
 
 	// Инициализируем структуру данных приложения
 	appData = data.NewAppData()

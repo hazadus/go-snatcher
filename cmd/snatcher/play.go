@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"os/signal"
 	"strconv"
 	"syscall"
@@ -27,6 +28,28 @@ var playCmd = &cobra.Command{
 		}
 		playByID(trackID)
 	},
+}
+
+// enableRawMode включает режим raw для терминала (без буферизации и echo)
+func enableRawMode() *exec.Cmd {
+	cmd := exec.Command("stty", "-echo", "-icanon")
+	cmd.Stdin = os.Stdin
+	_ = cmd.Run() // Игнорируем ошибку, так как это не критично для работы плеера
+	return cmd
+}
+
+// disableRawMode восстанавливает нормальный режим терминала
+func disableRawMode() {
+	cmd := exec.Command("stty", "echo", "icanon")
+	cmd.Stdin = os.Stdin
+	_ = cmd.Run() // Игнорируем ошибку, так как это не критично для работы плеера
+}
+
+// readSingleChar читает одиночный символ без ожидания Enter
+func readSingleChar() (byte, error) {
+	buffer := make([]byte, 1)
+	_, err := os.Stdin.Read(buffer)
+	return buffer[0], err
 }
 
 func playByID(trackID int) {
@@ -96,10 +119,54 @@ func playByID(trackID int) {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
 
-	// Запускаем воспроизведение с callback для завершения
-	speaker.Play(beep.Seq(streamer, beep.Callback(func() {
+	// Создаем контроллер паузы с правильной структурой
+	ctrl := &beep.Ctrl{
+		Streamer: streamer,
+		Paused:   false,
+	}
+	var isPaused bool                                    // Дополнительная переменная для отслеживания состояния
+	var currentStreamer beep.StreamSeekCloser = streamer // Сохраняем ссылку на streamer
+
+	// Запускаем воспроизведение с callback для завершения и контролем паузы
+	speaker.Play(beep.Seq(ctrl, beep.Callback(func() {
 		done <- true
 	})))
+
+	// Отображаем инструкции управления
+	fmt.Printf("🎮 Управление:\n")
+	fmt.Printf("   [Пробел] - пауза/воспроизведение\n")
+	fmt.Printf("   [Ctrl+C] - остановить и выйти\n")
+	fmt.Println()
+
+	// Включаем raw режим для чтения одиночных клавиш
+	enableRawMode()
+	defer disableRawMode() // Восстанавливаем нормальный режим при выходе
+
+	// Запускаем горутину для обработки клавиш
+	go func() {
+		for {
+			char, err := readSingleChar()
+			if err != nil {
+				continue
+			}
+
+			// Проверяем на пробел (ASCII 32) или Enter (ASCII 10/13)
+			if char == 32 || char == 10 || char == 13 {
+				speaker.Lock()
+				isPaused = !isPaused
+				ctrl.Paused = isPaused
+				speaker.Unlock()
+
+				// Очищаем строку и показываем новое состояние
+				fmt.Printf("\r\033[K") // Очищаем текущую строку
+				if isPaused {
+					fmt.Printf("⏸️  Пауза\n")
+				} else {
+					fmt.Printf("▶️  Воспроизведение\n")
+				}
+			}
+		}
+	}()
 
 	// Запускаем горутину для отображения прогресса с улучшенной информацией
 	go func() {
@@ -109,6 +176,8 @@ func playByID(trackID int) {
 		startTime := time.Now()
 		lastPosition := int64(0)
 		stuckCount := 0
+		pausedTime := time.Duration(0)
+		lastPausedState := false
 
 		for {
 			select {
@@ -116,26 +185,38 @@ func playByID(trackID int) {
 				return
 			case <-ticker.C:
 				speaker.Lock()
-				currentPos := format.SampleRate.D(streamer.Position())
-				totalLen := format.SampleRate.D(streamer.Len())
+				currentPos := format.SampleRate.D(currentStreamer.Position())
+				totalLen := format.SampleRate.D(currentStreamer.Len())
+				currentPauseState := isPaused
 				speaker.Unlock()
 
-				// Проверяем, не застрял ли поток
+				// Учитываем время паузы
+				if currentPauseState && !lastPausedState {
+					// Начало паузы
+					pausedTime = time.Since(startTime) - currentPos
+				}
+				lastPausedState = currentPauseState
+
+				// Проверяем, не застрял ли поток (только если не на паузе)
 				currentPosInt := int64(currentPos)
-				if currentPosInt == lastPosition {
-					stuckCount++
-					if stuckCount > 5 { // Если позиция не меняется 5 секунд
-						fmt.Printf("\n⚠️  Поток может быть заблокирован. Позиция: %s\n", formatDuration(currentPos))
+				if !currentPauseState {
+					if currentPosInt == lastPosition {
+						stuckCount++
+						if stuckCount > 5 { // Если позиция не меняется 5 секунд
+							fmt.Printf("\n⚠️  Поток может быть заблокирован. Позиция: %s\n", formatDuration(currentPos))
+						}
+					} else {
+						stuckCount = 0
 					}
 				} else {
-					stuckCount = 0
+					stuckCount = 0 // Сбрасываем счетчик при паузе
 				}
 				lastPosition = currentPosInt
 
 				// Вычисляем скорость воспроизведения для диагностики
-				elapsed := time.Since(startTime)
+				elapsed := time.Since(startTime) - pausedTime
 				var speed float64
-				if elapsed > 0 {
+				if elapsed > 0 && !currentPauseState {
 					speed = float64(currentPos) / float64(elapsed)
 				}
 
@@ -161,23 +242,42 @@ func playByID(trackID int) {
 					}
 
 					statusIcon := "⏱️"
-					if stuckCount > 3 {
+					statusText := getStreamStatus(stuckCount)
+
+					if currentPauseState {
+						statusIcon = "⏸️"
+						statusText = "На паузе"
+					} else if stuckCount > 3 {
 						statusIcon = "⚠️"
 					} else if speed >= 0.98 && speed <= 1.02 {
 						statusIcon = "✅"
 					}
 
-					fmt.Printf("\r%s  %s | %s / %s | Скорость: %.2fx | Статус: %s",
-						statusIcon,
-						progress,
-						formatDuration(currentPos),
-						formatDuration(totalDur),
-						speed,
-						getStreamStatus(stuckCount))
+					if currentPauseState {
+						fmt.Printf("\r%s  %s | %s / %s | Статус: %s",
+							statusIcon,
+							progress,
+							formatDuration(currentPos),
+							formatDuration(totalDur),
+							statusText)
+					} else {
+						fmt.Printf("\r%s  %s | %s / %s | Скорость: %.2fx | Статус: %s",
+							statusIcon,
+							progress,
+							formatDuration(currentPos),
+							formatDuration(totalDur),
+							speed,
+							statusText)
+					}
 				} else {
-					fmt.Printf("\r⏱️  %s | Скорость: %.2fx | Потоковое воспроизведение",
-						formatDuration(currentPos),
-						speed)
+					if currentPauseState {
+						fmt.Printf("\r⏸️  %s | Статус: На паузе | Потоковое воспроизведение",
+							formatDuration(currentPos))
+					} else {
+						fmt.Printf("\r⏱️  %s | Скорость: %.2fx | Потоковое воспроизведение",
+							formatDuration(currentPos),
+							speed)
+					}
 				}
 			}
 		}
