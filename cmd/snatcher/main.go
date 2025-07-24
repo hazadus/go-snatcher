@@ -1,3 +1,4 @@
+// Package main - snatcher CLI tool
 package main
 
 import (

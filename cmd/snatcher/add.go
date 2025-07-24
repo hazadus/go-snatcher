@@ -21,7 +21,7 @@ var addCmd = &cobra.Command{
 	Short: "Upload an mp3 file to S3 storage",
 	Long:  `Upload an mp3 file to S3 storage with progress tracking.`,
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, args []string) {
 		uploadToS3(args[0])
 	},
 }

@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -11,31 +10,6 @@ import (
 	"github.com/dhowden/tag"
 	"github.com/gopxl/beep/mp3"
 )
-
-// Функция для загрузки файла по URL
-func downloadFromURL(url string) (io.ReadCloser, error) {
-	client := &http.Client{
-		Timeout: 60 * time.Second, // Увеличиваем таймаут для больших файлов
-	}
-
-	resp, err := client.Get(url)
-	if err != nil {
-		return nil, fmt.Errorf("ошибка при загрузке файла: %v", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		resp.Body.Close()
-		return nil, fmt.Errorf("HTTP ошибка: %s", resp.Status)
-	}
-
-	// Проверяем Content-Type
-	contentType := resp.Header.Get("Content-Type")
-	if contentType != "" && !strings.Contains(contentType, "audio/") && !strings.Contains(contentType, "application/octet-stream") {
-		fmt.Printf("⚠️  Предупреждение: неожиданный Content-Type: %s\n", contentType)
-	}
-
-	return resp.Body, nil
-}
 
 // TrackMetadata хранит метаданные трека
 type TrackMetadata struct {
@@ -154,6 +128,6 @@ func getMP3Duration(filePath string) (time.Duration, error) {
 
 	// Получаем длительность трека
 	duration := format.SampleRate.D(streamer.Len())
-	
+
 	return duration, nil
 }
