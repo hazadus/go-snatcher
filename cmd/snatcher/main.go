@@ -7,6 +7,7 @@ import (
 
 	"github.com/hazadus/go-snatcher/internal/config"
 	"github.com/hazadus/go-snatcher/internal/data"
+	"github.com/spf13/cobra"
 )
 
 const (
@@ -17,11 +18,17 @@ const (
 var (
 	cfg     *config.Config
 	appData *data.AppData
+	rootCmd = &cobra.Command{
+		Use:   "snatcher",
+		Short: "A simple command line tool to manage and play mp3 files",
+		Long:  `A simple command line tool to manage and play mp3 files from local path or URL.`,
+	}
 )
 
 func init() {
 	rootCmd.AddCommand(addCmd)
 	rootCmd.AddCommand(listCmd)
+	rootCmd.AddCommand(playCmd)
 }
 
 func main() {

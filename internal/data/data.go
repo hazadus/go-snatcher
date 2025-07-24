@@ -91,3 +91,13 @@ func (d *AppData) SaveData(filePath string) error {
 	}
 	return nil
 }
+
+// TrackByID возвращает трек по ID
+func (d *AppData) TrackByID(id int) (*TrackMetadata, error) {
+	for i := range d.Tracks {
+		if d.Tracks[i].ID == id {
+			return &d.Tracks[i], nil
+		}
+	}
+	return nil, fmt.Errorf("трека с ID %d не найдено", id)
+}

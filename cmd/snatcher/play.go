@@ -5,7 +5,7 @@ import (
 	"io"
 	"log"
 	"os"
-	"strings"
+	"strconv"
 	"time"
 
 	"github.com/gopxl/beep"
@@ -14,76 +14,74 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var rootCmd = &cobra.Command{
-	Use:   "snatcher [mp3 file or URL]",
-	Short: "Play an mp3 file from local path or URL",
-	Long:  `A simple command line tool to play mp3 files from local path or URL.`,
+var playCmd = &cobra.Command{
+	Use:   "play [trackid]",
+	Short: "Play a track by its ID",
+	Long:  `Play an mp3 file by its track ID from the app data.`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		play(args[0])
+		trackID, err := strconv.Atoi(args[0])
+		if err != nil {
+			log.Fatalf("Неверный ID трека: %s", args[0])
+		}
+		playByID(trackID)
 	},
 }
 
-func play(source string) {
-	var reader io.ReadCloser
-	var err error
-	var isURL bool
-
-	// Определяем, является ли источник URL или локальным файлом
-	if strings.HasPrefix(source, "http://") || strings.HasPrefix(source, "https://") {
-		isURL = true
-		fmt.Printf("🌐 Загружаем файл по URL: %s\n", source)
-		reader, err = downloadFromURL(source)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer reader.Close()
-	} else {
-		isURL = false
-		reader, err = os.Open(source)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer reader.Close()
-	}
-
-	// Читаем метаданные MP3 файла
-	metadata := getMetadataFromReader(reader, source)
-
-	// Сбрасываем позицию в reader для декодирования
-	if seeker, ok := reader.(io.ReadSeeker); ok {
-		if _, err := seeker.Seek(0, 0); err != nil {
-			log.Printf("Seek error: %v", err)
-			return // корректный выход из функции, если это main handler
-		}
-	} else {
-		// Если reader не поддерживает seek, создаем новый reader
-		if isURL {
-			reader.Close()
-			reader, err = downloadFromURL(source)
-			if err != nil {
-				log.Fatal(err)
-			}
-			defer reader.Close()
-		} else {
-			reader.Close()
-			reader, err = os.Open(source)
-			if err != nil {
-				log.Fatal(err)
-			}
-			defer reader.Close()
-		}
-	}
-
-	streamer, format, err := mp3.Decode(reader)
+func playByID(trackID int) {
+	// Находим трек по ID
+	track, err := appData.TrackByID(trackID)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Ошибка поиска трека: %v", err)
+	}
+
+	if track == nil {
+		log.Fatalf("Трек с ID %d не найден", trackID)
+	}
+
+	// Проверяем, что у трека есть URL
+	if track.URL == "" {
+		log.Fatalf("У трека с ID %d отсутствует URL", trackID)
+	}
+
+	fmt.Printf("🎵 Воспроизводим трек ID %d: %s - %s\n", trackID, track.Artist, track.Title)
+
+	// Загружаем файл по URL
+	reader, err := downloadFromURL(track.URL)
+	if err != nil {
+		log.Fatalf("Ошибка загрузки файла: %v", err)
+	}
+	defer reader.Close()
+
+	// Создаем временный файл для чтения метаданных
+	tempFile, err := os.CreateTemp("", "snatcher-*.mp3")
+	if err != nil {
+		log.Fatalf("Ошибка создания временного файла: %v", err)
+	}
+	defer os.Remove(tempFile.Name())
+	defer tempFile.Close()
+
+	// Копируем данные в временный файл
+	_, err = io.Copy(tempFile, reader)
+	if err != nil {
+		log.Fatalf("Ошибка копирования данных: %v", err)
+	}
+
+	// Сбрасываем позицию в файле
+	if _, err := tempFile.Seek(0, 0); err != nil {
+		log.Fatalf("Ошибка позиционирования в файле: %v", err)
+	}
+
+	// Декодируем MP3
+	streamer, format, err := mp3.Decode(tempFile)
+	if err != nil {
+		log.Fatalf("Ошибка декодирования MP3: %v", err)
 	}
 	defer streamer.Close()
 
 	err = speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/10))
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Ошибка инициализации динамиков: %v", err)
 	}
 
 	// Получаем длительность трека
@@ -91,9 +89,10 @@ func play(source string) {
 
 	// Выводим информацию о треке
 	fmt.Printf("🎵 Сейчас играет:\n")
-	fmt.Printf("   Исполнитель: %s\n", metadata.Artist)
-	fmt.Printf("   Название: %s\n", metadata.Title)
-	fmt.Printf("   Альбом: %s\n", metadata.Album)
+	fmt.Printf("   ID: %d\n", track.ID)
+	fmt.Printf("   Исполнитель: %s\n", track.Artist)
+	fmt.Printf("   Название: %s\n", track.Title)
+	fmt.Printf("   Альбом: %s\n", track.Album)
 	fmt.Printf("   Продолжительность: %s\n", formatDuration(duration))
 	fmt.Println()
 
