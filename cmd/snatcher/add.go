@@ -151,11 +151,18 @@ func uploadToS3(filePath string) {
 
 	meta := getMetadataFromReader(fileForMeta, filePath)
 
+	// Получаем длительность трека
+	duration, err := getMP3Duration(filePath)
+	if err != nil {
+		log.Printf("Ошибка определения длительности трека: %v", err)
+		duration = 0
+	}
+
 	track := data.TrackMetadata{
 		Artist:   meta.Artist,
 		Title:    meta.Title,
 		Album:    meta.Album,
-		Length:   0, // TODO: Получить длительность трека
+		Length:   int(duration.Seconds()),
 		FileSize: fileSize,
 		URL:      url,
 	}

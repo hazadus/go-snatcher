@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/dhowden/tag"
+	"github.com/gopxl/beep/mp3"
 )
 
 // Функция для загрузки файла по URL
@@ -133,4 +134,26 @@ func getFileNameWithoutExt(filepath string) string {
 	parts := strings.Split(filepath, "/")
 	filename := parts[len(parts)-1]
 	return strings.TrimSuffix(filename, ".mp3")
+}
+
+// Функция для определения длительности MP3 файла в секундах
+func getMP3Duration(filePath string) (time.Duration, error) {
+	// Открываем файл
+	file, err := os.Open(filePath)
+	if err != nil {
+		return 0, fmt.Errorf("ошибка открытия файла: %v", err)
+	}
+	defer file.Close()
+
+	// Декодируем MP3 для получения длительности
+	streamer, format, err := mp3.Decode(file)
+	if err != nil {
+		return 0, fmt.Errorf("ошибка декодирования MP3: %v", err)
+	}
+	defer streamer.Close()
+
+	// Получаем длительность трека
+	duration := format.SampleRate.D(streamer.Len())
+	
+	return duration, nil
 }
