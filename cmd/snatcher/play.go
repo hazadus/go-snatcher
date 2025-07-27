@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -21,12 +20,12 @@ var playCmd = &cobra.Command{
 	Short: "Play a track by its ID",
 	Long:  `Play an mp3 file by its track ID from the app data.`,
 	Args:  cobra.ExactArgs(1),
-	Run: func(_ *cobra.Command, args []string) {
+	RunE: func(_ *cobra.Command, args []string) error {
 		trackID, err := strconv.Atoi(args[0])
 		if err != nil {
-			log.Fatalf("Неверный ID трека: %s", args[0])
+			return fmt.Errorf("неверный ID трека: %s", args[0])
 		}
-		playByID(trackID)
+		return playByID(trackID)
 	},
 }
 
@@ -52,20 +51,20 @@ func readSingleChar() (byte, error) {
 	return buffer[0], err
 }
 
-func playByID(trackID int) {
+func playByID(trackID int) error {
 	// Находим трек по ID
 	track, err := appData.TrackByID(trackID)
 	if err != nil {
-		log.Fatalf("Ошибка поиска трека: %v", err)
+		return fmt.Errorf("ошибка поиска трека: %w", err)
 	}
 
 	if track == nil {
-		log.Fatalf("Трек с ID %d не найден", trackID)
+		return fmt.Errorf("трек с ID %d не найден", trackID)
 	}
 
 	// Проверяем, что у трека есть URL
 	if track.URL == "" {
-		log.Fatalf("У трека с ID %d отсутствует URL", trackID)
+		return fmt.Errorf("у трека с ID %d отсутствует URL", trackID)
 	}
 
 	fmt.Printf("🎵 Воспроизводим трек ID %d: %s - %s\n", trackID, track.Artist, track.Title)
@@ -81,7 +80,7 @@ func playByID(trackID int) {
 	const bufferSize = 256 * 1024 // 256KB буфер для более стабильного потока
 	streamReader, err := NewStreamingReader(track.URL, bufferSize)
 	if err != nil {
-		log.Fatalf("Ошибка создания потокового ридера: %v", err)
+		return fmt.Errorf("ошибка создания потокового ридера: %w", err)
 	}
 	defer streamReader.Close()
 
@@ -90,14 +89,14 @@ func playByID(trackID int) {
 	// Декодируем MP3 потоково из нашего буферизованного ридера
 	streamer, format, err := mp3.Decode(streamReader)
 	if err != nil {
-		log.Fatalf("Ошибка декодирования MP3: %v", err)
+		return fmt.Errorf("ошибка декодирования MP3: %w", err)
 	}
 	defer streamer.Close()
 
 	// Инициализируем speaker с большим буфером для плавного воспроизведения
 	err = speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/5)) // 200ms буфер
 	if err != nil {
-		log.Fatalf("Ошибка инициализации динамиков: %v", err)
+		return fmt.Errorf("ошибка инициализации динамиков: %w", err)
 	}
 
 	// Получаем длительность трека из локальных данных, если доступна
@@ -291,4 +290,6 @@ func playByID(trackID int) {
 		fmt.Println("\n⏹️  Воспроизведение остановлено пользователем")
 		speaker.Clear() // Останавливаем воспроизведение
 	}
+
+	return nil
 }

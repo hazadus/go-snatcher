@@ -3,7 +3,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/hazadus/go-snatcher/internal/config"
@@ -34,25 +33,32 @@ func init() {
 }
 
 func main() {
+	if err := run(); err != nil {
+		fmt.Fprintf(os.Stderr, "Ошибка: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	var err error
 
 	// Загружаем конфигурацию приложения
 	if cfg, err = config.LoadConfig(defaultConfigPath); err != nil {
-		log.Fatalf("Ошибка загрузки конфигурации: %v", err)
+		return fmt.Errorf("ошибка загрузки конфигурации: %w", err)
 	}
 
 	// Инициализируем структуру данных приложения
 	appData = data.NewAppData()
 	if err := appData.LoadData(defaultDataFilePath); err != nil {
-		log.Fatalf("Ошибка загрузки данных приложения: %v", err)
+		return fmt.Errorf("ошибка загрузки данных приложения: %w", err)
 	}
 
-	execute()
+	return execute()
 }
 
-func execute() {
+func execute() error {
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		return fmt.Errorf("ошибка выполнения команды: %w", err)
 	}
+	return nil
 }

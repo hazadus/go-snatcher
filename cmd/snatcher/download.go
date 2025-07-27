@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -18,17 +17,17 @@ var downloadCmd = &cobra.Command{
 	Short: "Download audio from YouTube video as MP3",
 	Long:  `Download audio from YouTube video and save it as MP3 file to the configured download directory.`,
 	Args:  cobra.ExactArgs(1),
-	Run: func(_ *cobra.Command, args []string) {
-		downloadYouTubeAudio(args[0])
+	RunE: func(_ *cobra.Command, args []string) error {
+		return downloadYouTubeAudio(args[0])
 	},
 }
 
 // downloadYouTubeAudio скачивает аудио из YouTube видео
-func downloadYouTubeAudio(url string) {
+func downloadYouTubeAudio(url string) error {
 	// Извлекаем ID видео из URL
 	videoID, err := extractVideoID(url)
 	if err != nil {
-		log.Fatalf("Ошибка извлечения ID видео: %v", err)
+		return fmt.Errorf("ошибка извлечения ID видео: %w", err)
 	}
 
 	fmt.Printf("Скачиваем аудио для видео ID: %s\n", videoID)
@@ -39,7 +38,7 @@ func downloadYouTubeAudio(url string) {
 	// Получаем информацию о видео
 	video, err := client.GetVideo(videoID)
 	if err != nil {
-		log.Fatalf("Ошибка получения информации о видео: %v", err)
+		return fmt.Errorf("ошибка получения информации о видео: %w", err)
 	}
 
 	fmt.Printf("Название: %s\n", video.Title)
@@ -48,7 +47,7 @@ func downloadYouTubeAudio(url string) {
 	// Находим лучший аудио формат
 	audioFormat := findBestAudioFormat(video.Formats)
 	if audioFormat == nil {
-		log.Fatal("Аудио формат не найден")
+		return fmt.Errorf("аудио формат не найден")
 	}
 
 	fmt.Printf("Используем формат: itag=%d, качество=%s\n", audioFormat.ItagNo, audioFormat.Quality)
@@ -56,7 +55,7 @@ func downloadYouTubeAudio(url string) {
 	// Получаем поток для скачивания
 	stream, _, err := client.GetStream(video, audioFormat)
 	if err != nil {
-		log.Fatalf("Ошибка получения потока: %v", err)
+		return fmt.Errorf("ошибка получения потока: %w", err)
 	}
 	defer stream.Close()
 
@@ -66,25 +65,26 @@ func downloadYouTubeAudio(url string) {
 
 	// Создаем директорию если она не существует
 	if err := os.MkdirAll(cfg.DownloadDir, 0755); err != nil {
-		log.Fatalf("Ошибка создания директории: %v", err)
+		return fmt.Errorf("ошибка создания директории: %w", err)
 	}
 
 	// Создаем файл
 	file, err := os.Create(filePath)
 	if err != nil {
-		log.Fatalf("Ошибка создания файла: %v", err)
+		return fmt.Errorf("ошибка создания файла: %w", err)
 	}
 	defer file.Close()
 
 	// Копируем данные из потока в файл
 	fmt.Printf("Скачиваем в файл: %s\n", filePath)
-	
+
 	_, err = io.Copy(file, stream)
 	if err != nil {
-		log.Fatalf("Ошибка скачивания: %v", err)
+		return fmt.Errorf("ошибка скачивания: %w", err)
 	}
 
 	fmt.Printf("Аудио успешно скачано: %s\n", filePath)
+	return nil
 }
 
 // extractVideoID извлекает ID видео из различных форматов YouTube URL
@@ -116,7 +116,7 @@ func extractVideoID(url string) (string, error) {
 func findBestAudioFormat(formats youtube.FormatList) *youtube.Format {
 	// Сначала ищем форматы только с аудио
 	audioFormats := formats.WithAudioChannels()
-	
+
 	if len(audioFormats) == 0 {
 		// Если нет только аудио форматов, ищем видео+аудио форматы
 		videoAudioFormats := formats.Type("video")
@@ -130,15 +130,15 @@ func findBestAudioFormat(formats youtube.FormatList) *youtube.Format {
 
 	// Ищем форматы с лучшим качеством аудио
 	bestFormat := &audioFormats[0]
-	
+
 	for i := range audioFormats {
 		format := &audioFormats[i]
-		
+
 		// Предпочитаем форматы с более высоким битрейтом
 		if format.Bitrate > bestFormat.Bitrate {
 			bestFormat = format
 		}
-		
+
 		// Предпочитаем MP4/M4A форматы для лучшей совместимости
 		if strings.Contains(format.MimeType, "mp4") || strings.Contains(format.MimeType, "m4a") {
 			if !strings.Contains(bestFormat.MimeType, "mp4") && !strings.Contains(bestFormat.MimeType, "m4a") {
@@ -155,14 +155,14 @@ func sanitizeFileName(name string) string {
 	// Заменяем недопустимые символы
 	re := regexp.MustCompile(`[<>:"/\\|?*]`)
 	name = re.ReplaceAllString(name, "_")
-	
+
 	// Убираем лишние пробелы
 	name = strings.TrimSpace(name)
-	
+
 	// Ограничиваем длину имени файла
 	if len(name) > 200 {
 		name = name[:200]
 	}
-	
+
 	return name
 }

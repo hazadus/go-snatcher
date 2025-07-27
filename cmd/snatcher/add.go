@@ -21,29 +21,29 @@ var addCmd = &cobra.Command{
 	Short: "Upload an mp3 file to S3 storage",
 	Long:  `Upload an mp3 file to S3 storage with progress tracking.`,
 	Args:  cobra.ExactArgs(1),
-	Run: func(_ *cobra.Command, args []string) {
-		uploadToS3(args[0])
+	RunE: func(_ *cobra.Command, args []string) error {
+		return uploadToS3(args[0])
 	},
 }
 
 // Функция для загрузки файла в S3 с отображением прогресса
-func uploadToS3(filePath string) {
+func uploadToS3(filePath string) error {
 	// Проверяем существование файла
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		log.Fatalf("Файл не найден: %s", filePath)
+		return fmt.Errorf("файл не найден: %s", filePath)
 	}
 
 	// Открываем файл
 	file, err := os.Open(filePath)
 	if err != nil {
-		log.Fatalf("Ошибка открытия файла: %v", err)
+		return fmt.Errorf("ошибка открытия файла: %w", err)
 	}
 	defer file.Close()
 
 	// Получаем размер файла
 	fileInfo, err := file.Stat()
 	if err != nil {
-		log.Fatalf("Ошибка получения информации о файле: %v", err)
+		return fmt.Errorf("ошибка получения информации о файле: %w", err)
 	}
 	fileSize := fileInfo.Size()
 
@@ -65,7 +65,7 @@ func uploadToS3(filePath string) {
 
 	sess, err := session.NewSession(awsConfig)
 	if err != nil {
-		log.Fatalf("Ошибка создания AWS сессии: %v", err)
+		return fmt.Errorf("ошибка создания AWS сессии: %w", err)
 	}
 
 	// Создаем S3 uploader
@@ -134,8 +134,7 @@ func uploadToS3(filePath string) {
 	close(progressChan)
 
 	if err != nil {
-		fmt.Printf("\n❌ Ошибка загрузки: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("ошибка загрузки: %w", err)
 	}
 
 	fmt.Printf("\n✅ Файл успешно загружен в S3!\n")
@@ -146,36 +145,37 @@ func uploadToS3(filePath string) {
 	fileForMeta, err := os.Open(filePath)
 	if err != nil {
 		log.Printf("Ошибка открытия файла для метаданных: %v", err)
-	}
-	defer fileForMeta.Close()
-
-	meta := getMetadataFromReader(fileForMeta, filePath)
-
-	// Получаем длительность трека
-	duration, err := getMP3Duration(filePath)
-	if err != nil {
-		log.Printf("Ошибка определения длительности трека: %v", err)
-		duration = 0
-	}
-
-	track := data.TrackMetadata{
-		Artist:   meta.Artist,
-		Title:    meta.Title,
-		Album:    meta.Album,
-		Length:   int(duration.Seconds()),
-		FileSize: fileSize,
-		URL:      url,
-	}
-
-	// Добавляем трек
-	appData.AddTrack(track)
-
-	// Сохраняем данные
-	if err := appData.SaveData(defaultDataFilePath); err != nil {
-		fmt.Printf("\n❌ Ошибка сохранения данных: %v\n", err)
 	} else {
+		defer fileForMeta.Close()
+		meta := getMetadataFromReader(fileForMeta, filePath)
+
+		// Получаем длительность трека
+		duration, err := getMP3Duration(filePath)
+		if err != nil {
+			log.Printf("Ошибка определения длительности трека: %v", err)
+			duration = 0
+		}
+
+		track := data.TrackMetadata{
+			Artist:   meta.Artist,
+			Title:    meta.Title,
+			Album:    meta.Album,
+			Length:   int(duration.Seconds()),
+			FileSize: fileSize,
+			URL:      url,
+		}
+
+		// Добавляем трек
+		appData.AddTrack(track)
+
+		// Сохраняем данные
+		if err := appData.SaveData(defaultDataFilePath); err != nil {
+			return fmt.Errorf("ошибка сохранения данных: %w", err)
+		}
 		fmt.Printf("\n📦 Данные трека добавлены в %s\n", defaultDataFilePath)
 	}
+
+	return nil
 }
 
 // ProgressReader структура для отслеживания прогресса чтения

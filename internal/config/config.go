@@ -36,14 +36,14 @@ func LoadConfig(filePath string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Устанавливаем значения по умолчанию, если они не заданы
 	if config.DownloadDir == "" {
 		config.DownloadDir = "~/Downloads"
 	}
-	
+
 	// Раскрываем тильду в пути загрузки
 	config.DownloadDir = strings.Replace(config.DownloadDir, "~", home, 1)
-	
+
 	return config, nil
 }
