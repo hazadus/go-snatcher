@@ -15,6 +15,7 @@ type Config struct {
 	AwsSecretKey  string `yaml:"aws_secret_key"`
 	AwsRegion     string `yaml:"aws_region"`
 	AwsEndpoint   string `yaml:"aws_endpoint"`
+	DownloadDir   string `yaml:"download_dir"`
 }
 
 // LoadConfig загружает конфигурацию приложения из указанного файла
@@ -35,5 +36,14 @@ func LoadConfig(filePath string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	
+	// Устанавливаем значения по умолчанию, если они не заданы
+	if config.DownloadDir == "" {
+		config.DownloadDir = "~/Downloads"
+	}
+	
+	// Раскрываем тильду в пути загрузки
+	config.DownloadDir = strings.Replace(config.DownloadDir, "~", home, 1)
+	
 	return config, nil
 }

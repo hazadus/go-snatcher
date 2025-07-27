@@ -30,6 +30,7 @@ func init() {
 	rootCmd.AddCommand(addCmd)
 	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(playCmd)
+	rootCmd.AddCommand(downloadCmd)
 }
 
 func main() {
