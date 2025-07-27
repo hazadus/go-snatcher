@@ -15,18 +15,21 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var playCmd = &cobra.Command{
-	Use:   "play [trackid]",
-	Short: "Play a track by its ID",
-	Long:  `Play an mp3 file by its track ID from the app data.`,
-	Args:  cobra.ExactArgs(1),
-	RunE: func(_ *cobra.Command, args []string) error {
-		trackID, err := strconv.Atoi(args[0])
-		if err != nil {
-			return fmt.Errorf("неверный ID трека: %s", args[0])
-		}
-		return playByID(trackID)
-	},
+// createPlayCommand создает команду play с привязкой к экземпляру приложения
+func (app *Application) createPlayCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "play [trackid]",
+		Short: "Play a track by its ID",
+		Long:  `Play an mp3 file by its track ID from the app data.`,
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			trackID, err := strconv.Atoi(args[0])
+			if err != nil {
+				return fmt.Errorf("неверный ID трека: %s", args[0])
+			}
+			return app.playByID(trackID)
+		},
+	}
 }
 
 // enableRawMode включает режим raw для терминала (без буферизации и echo)
@@ -51,9 +54,9 @@ func readSingleChar() (byte, error) {
 	return buffer[0], err
 }
 
-func playByID(trackID int) error {
+func (app *Application) playByID(trackID int) error {
 	// Находим трек по ID
-	track, err := appData.TrackByID(trackID)
+	track, err := app.Data.TrackByID(trackID)
 	if err != nil {
 		return fmt.Errorf("ошибка поиска трека: %w", err)
 	}

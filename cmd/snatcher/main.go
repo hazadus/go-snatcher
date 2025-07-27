@@ -15,21 +15,38 @@ const (
 	defaultDataFilePath = "~/.snatcher_data"
 )
 
-var (
-	cfg     *config.Config
-	appData *data.AppData
-	rootCmd = &cobra.Command{
-		Use:   "snatcher",
-		Short: "A simple command line tool to manage and play mp3 files",
-		Long:  `A simple command line tool to manage and play mp3 files from local path or URL.`,
-	}
-)
+// Application содержит все зависимости приложения
+type Application struct {
+	Config *config.Config
+	Data   *data.AppData
+}
 
-func init() {
-	rootCmd.AddCommand(addCmd)
-	rootCmd.AddCommand(listCmd)
-	rootCmd.AddCommand(playCmd)
-	rootCmd.AddCommand(downloadCmd)
+// NewApplication создает новый экземпляр приложения
+func NewApplication() *Application {
+	return &Application{}
+}
+
+// Initialize инициализирует приложение - загружает конфигурацию и данные
+func (app *Application) Initialize() error {
+	var err error
+
+	// Загружаем конфигурацию приложения
+	if app.Config, err = config.LoadConfig(defaultConfigPath); err != nil {
+		return fmt.Errorf("ошибка загрузки конфигурации: %w", err)
+	}
+
+	// Инициализируем структуру данных приложения
+	app.Data = data.NewAppData()
+	if err := app.Data.LoadData(defaultDataFilePath); err != nil {
+		return fmt.Errorf("ошибка загрузки данных приложения: %w", err)
+	}
+
+	return nil
+}
+
+// SaveData сохраняет данные приложения
+func (app *Application) SaveData() error {
+	return app.Data.SaveData(defaultDataFilePath)
 }
 
 func main() {
@@ -40,25 +57,33 @@ func main() {
 }
 
 func run() error {
-	var err error
+	// Создаем экземпляр приложения
+	app := NewApplication()
 
-	// Загружаем конфигурацию приложения
-	if cfg, err = config.LoadConfig(defaultConfigPath); err != nil {
-		return fmt.Errorf("ошибка загрузки конфигурации: %w", err)
+	// Инициализируем приложение
+	if err := app.Initialize(); err != nil {
+		return err
 	}
 
-	// Инициализируем структуру данных приложения
-	appData = data.NewAppData()
-	if err := appData.LoadData(defaultDataFilePath); err != nil {
-		return fmt.Errorf("ошибка загрузки данных приложения: %w", err)
-	}
+	// Создаем корневую команду
+	rootCmd := app.createRootCommand()
 
-	return execute()
+	return rootCmd.Execute()
 }
 
-func execute() error {
-	if err := rootCmd.Execute(); err != nil {
-		return fmt.Errorf("ошибка выполнения команды: %w", err)
+// createRootCommand создает корневую команду с настроенными подкомандами
+func (app *Application) createRootCommand() *cobra.Command {
+	rootCmd := &cobra.Command{
+		Use:   "snatcher",
+		Short: "A simple command line tool to manage and play mp3 files",
+		Long:  `A simple command line tool to manage and play mp3 files from local path or URL.`,
 	}
-	return nil
+
+	// Добавляем команды, передавая в них экземпляр приложения
+	rootCmd.AddCommand(app.createAddCommand())
+	rootCmd.AddCommand(app.createListCommand())
+	rootCmd.AddCommand(app.createPlayCommand())
+	rootCmd.AddCommand(app.createDownloadCommand())
+
+	return rootCmd
 }

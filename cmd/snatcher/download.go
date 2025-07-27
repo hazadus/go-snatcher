@@ -12,18 +12,21 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var downloadCmd = &cobra.Command{
-	Use:   "download [YouTube URL]",
-	Short: "Download audio from YouTube video as MP3",
-	Long:  `Download audio from YouTube video and save it as MP3 file to the configured download directory.`,
-	Args:  cobra.ExactArgs(1),
-	RunE: func(_ *cobra.Command, args []string) error {
-		return downloadYouTubeAudio(args[0])
-	},
+// createDownloadCommand создает команду download с привязкой к экземпляру приложения
+func (app *Application) createDownloadCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "download [YouTube URL]",
+		Short: "Download audio from YouTube video as MP3",
+		Long:  `Download audio from YouTube video and save it as MP3 file to the configured download directory.`,
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			return app.downloadYouTubeAudio(args[0])
+		},
+	}
 }
 
 // downloadYouTubeAudio скачивает аудио из YouTube видео
-func downloadYouTubeAudio(url string) error {
+func (app *Application) downloadYouTubeAudio(url string) error {
 	// Извлекаем ID видео из URL
 	videoID, err := extractVideoID(url)
 	if err != nil {
@@ -61,10 +64,10 @@ func downloadYouTubeAudio(url string) error {
 
 	// Создаем имя файла
 	fileName := sanitizeFileName(video.Title) + ".mp3"
-	filePath := filepath.Join(cfg.DownloadDir, fileName)
+	filePath := filepath.Join(app.Config.DownloadDir, fileName)
 
 	// Создаем директорию если она не существует
-	if err := os.MkdirAll(cfg.DownloadDir, 0755); err != nil {
+	if err := os.MkdirAll(app.Config.DownloadDir, 0755); err != nil {
 		return fmt.Errorf("ошибка создания директории: %w", err)
 	}
 

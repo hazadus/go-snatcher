@@ -16,18 +16,21 @@ import (
 	"github.com/hazadus/go-snatcher/internal/data"
 )
 
-var addCmd = &cobra.Command{
-	Use:   "add [file path]",
-	Short: "Upload an mp3 file to S3 storage",
-	Long:  `Upload an mp3 file to S3 storage with progress tracking.`,
-	Args:  cobra.ExactArgs(1),
-	RunE: func(_ *cobra.Command, args []string) error {
-		return uploadToS3(args[0])
-	},
+// createAddCommand создает команду add с привязкой к экземпляру приложения
+func (app *Application) createAddCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "add [file path]",
+		Short: "Upload an mp3 file to S3 storage",
+		Long:  `Upload an mp3 file to S3 storage with progress tracking.`,
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			return app.uploadToS3(args[0])
+		},
+	}
 }
 
-// Функция для загрузки файла в S3 с отображением прогресса
-func uploadToS3(filePath string) error {
+// uploadToS3 загружает файл в S3 с отображением прогресса
+func (app *Application) uploadToS3(filePath string) error {
 	// Проверяем существование файла
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		return fmt.Errorf("файл не найден: %s", filePath)
@@ -49,17 +52,17 @@ func uploadToS3(filePath string) error {
 
 	// Создаем AWS сессию
 	awsConfig := &aws.Config{
-		Region: aws.String(cfg.AwsRegion),
+		Region: aws.String(app.Config.AwsRegion),
 		Credentials: credentials.NewStaticCredentials(
-			cfg.AwsAccessKey,
-			cfg.AwsSecretKey,
+			app.Config.AwsAccessKey,
+			app.Config.AwsSecretKey,
 			"",
 		),
 	}
 
 	// Если указан endpoint, добавляем его
-	if cfg.AwsEndpoint != "" {
-		awsConfig.Endpoint = aws.String(cfg.AwsEndpoint)
+	if app.Config.AwsEndpoint != "" {
+		awsConfig.Endpoint = aws.String(app.Config.AwsEndpoint)
 		awsConfig.S3ForcePathStyle = aws.Bool(true)
 	}
 
@@ -78,7 +81,7 @@ func uploadToS3(filePath string) error {
 	fmt.Printf("📤 Загружаем файл в S3:\n")
 	fmt.Printf("   Файл: %s\n", filePath)
 	fmt.Printf("   Размер: %s\n", formatFileSize(fileSize))
-	fmt.Printf("   Бакет: %s\n", cfg.AwsBucketName)
+	fmt.Printf("   Бакет: %s\n", app.Config.AwsBucketName)
 	fmt.Printf("   Ключ: %s\n", s3Key)
 	fmt.Println()
 
@@ -125,7 +128,7 @@ func uploadToS3(filePath string) error {
 
 	// Выполняем загрузку
 	_, err = uploader.Upload(&s3manager.UploadInput{
-		Bucket: aws.String(cfg.AwsBucketName),
+		Bucket: aws.String(app.Config.AwsBucketName),
 		Key:    aws.String(s3Key),
 		Body:   progressReader,
 	})
@@ -138,7 +141,7 @@ func uploadToS3(filePath string) error {
 	}
 
 	fmt.Printf("\n✅ Файл успешно загружен в S3!\n")
-	url := fmt.Sprintf("%s/%s/%s", cfg.AwsEndpoint, cfg.AwsBucketName, s3Key)
+	url := fmt.Sprintf("%s/%s/%s", app.Config.AwsEndpoint, app.Config.AwsBucketName, s3Key)
 	fmt.Printf("   URL: %s\n", url)
 
 	// Получаем реальные метаданные трека
@@ -166,10 +169,10 @@ func uploadToS3(filePath string) error {
 		}
 
 		// Добавляем трек
-		appData.AddTrack(track)
+		app.Data.AddTrack(track)
 
 		// Сохраняем данные
-		if err := appData.SaveData(defaultDataFilePath); err != nil {
+		if err := app.SaveData(); err != nil {
 			return fmt.Errorf("ошибка сохранения данных: %w", err)
 		}
 		fmt.Printf("\n📦 Данные трека добавлены в %s\n", defaultDataFilePath)

@@ -7,22 +7,25 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var listCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List all tracks from the library",
-	Long:  `Display a list of all tracks stored in the application data.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		listTracks()
-	},
+// createListCommand создает команду list с привязкой к экземпляру приложения
+func (app *Application) createListCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "list",
+		Short: "List all tracks from the library",
+		Long:  `Display a list of all tracks stored in the application data.`,
+		Run: func(_ *cobra.Command, _ []string) {
+			app.listTracks()
+		},
+	}
 }
 
-func listTracks() {
-	if len(appData.Tracks) == 0 {
+func (app *Application) listTracks() {
+	if len(app.Data.Tracks) == 0 {
 		fmt.Println("📚 Библиотека пуста. Добавьте треки с помощью команды 'add'.")
 		return
 	}
 
-	fmt.Printf("📚 Найдено треков: %d\n\n", len(appData.Tracks))
+	fmt.Printf("📚 Найдено треков: %d\n\n", len(app.Data.Tracks))
 
 	// Выводим заголовок таблицы
 	fmt.Printf("%-4s %-30s %-30s %-20s %-10s %-12s\n",
@@ -30,7 +33,7 @@ func listTracks() {
 	fmt.Println(strings.Repeat("-", 120))
 
 	// Выводим каждый трек
-	for _, track := range appData.Tracks {
+	for _, track := range app.Data.Tracks {
 		// Форматируем длительность
 		duration := formatDurationFromSeconds(track.Length)
 		if track.Length == 0 {
