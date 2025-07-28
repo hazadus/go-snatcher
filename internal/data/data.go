@@ -9,16 +9,19 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// TrackMetadata содержит метаданные музыкального трека
 type TrackMetadata struct {
-	ID       int    `yaml:"id"`
-	Artist   string `yaml:"artist"`
-	Title    string `yaml:"title"`
-	Album    string `yaml:"album"`
-	Length   int    `yaml:"length"`    // Длина трека в секундах
-	FileSize int64  `yaml:"file_size"` // Размер файла в байтах
-	URL      string `yaml:"url"`       // URL трека в хранилище S3
+	ID        int    `yaml:"id"`
+	Artist    string `yaml:"artist"`
+	Title     string `yaml:"title"`
+	Album     string `yaml:"album"`
+	Length    int    `yaml:"length"`     // Длина трека в секундах
+	FileSize  int64  `yaml:"file_size"`  // Размер файла в байтах
+	URL       string `yaml:"url"`        // URL трека в хранилище S3
+	SourceURL string `yaml:"source_url"` // URL источника, откуда скачан материал
 }
 
+// AppData содержит все данные приложения
 type AppData struct {
 	Tracks []TrackMetadata `yaml:"tracks"`
 }
