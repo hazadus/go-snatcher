@@ -3,13 +3,13 @@ package player
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/charmbracelet/bubbles/progress"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/hazadus/go-snatcher/internal/data"
 	"github.com/hazadus/go-snatcher/internal/player"
+	"github.com/hazadus/go-snatcher/internal/utils"
 )
 
 var (
@@ -205,8 +205,8 @@ func (m *Model) View() string {
 	// Время
 	timeText := fmt.Sprintf(
 		"%s / %s",
-		formatDuration(m.status.Current),
-		formatDuration(m.status.Total),
+		utils.FormatDuration(m.status.Current),
+		utils.FormatDuration(m.status.Total),
 	)
 
 	// Элементы управления
@@ -271,16 +271,6 @@ func formatStatus(isPlaying bool) string {
 		return "Воспроизведение"
 	}
 	return "Пауза"
-}
-
-func formatDuration(d time.Duration) string {
-	if d == 0 {
-		return "00:00"
-	}
-
-	minutes := int(d.Minutes())
-	seconds := int(d.Seconds()) % 60
-	return fmt.Sprintf("%02d:%02d", minutes, seconds)
 }
 
 func min(a, b int) int {

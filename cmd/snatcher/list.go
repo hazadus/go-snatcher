@@ -8,6 +8,7 @@ import (
 
 	"github.com/hazadus/go-snatcher/internal/track"
 	"github.com/hazadus/go-snatcher/internal/uploader"
+	"github.com/hazadus/go-snatcher/internal/utils"
 )
 
 // createListCommand создает команду list с привязкой к экземпляру приложения
@@ -42,7 +43,7 @@ func (app *Application) listTracks() {
 	// Выводим каждый трек
 	for _, track := range tracks {
 		// Форматируем длительность
-		duration := formatDurationFromSeconds(track.Length)
+		duration := utils.FormatDurationFromSeconds(track.Length)
 		if track.Length == 0 {
 			duration = "N/A"
 		}
@@ -68,16 +69,8 @@ func truncateString(s string, maxLen int) string {
 	if len(s) <= maxLen {
 		return s
 	}
-	return s[:maxLen-3] + "..."
-}
-
-// Функция для форматирования длительности из секунд
-func formatDurationFromSeconds(seconds int) string {
-	if seconds == 0 {
-		return "N/A"
+	if maxLen <= 3 {
+		return s[:maxLen]
 	}
-
-	minutes := seconds / 60
-	remainingSeconds := seconds % 60
-	return fmt.Sprintf("%02d:%02d", minutes, remainingSeconds)
+	return s[:maxLen-3] + "..."
 }

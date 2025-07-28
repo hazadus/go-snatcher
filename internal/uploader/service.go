@@ -149,8 +149,5 @@ func FormatDuration(d time.Duration) string {
 	d -= m * time.Minute
 	s := d / time.Second
 
-	if h > 0 {
-		return fmt.Sprintf("%d:%02d:%02d", h, m, s)
-	}
-	return fmt.Sprintf("%d:%02d", m, s)
+	return fmt.Sprintf("%02d:%02d:%02d", h, m, s)
 }

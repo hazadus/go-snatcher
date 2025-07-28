@@ -14,6 +14,7 @@ import (
 
 	"github.com/hazadus/go-snatcher/internal/player"
 	"github.com/hazadus/go-snatcher/internal/streaming"
+	"github.com/hazadus/go-snatcher/internal/utils"
 )
 
 // createPlayCommand создает команду play с привязкой к экземпляру приложения
@@ -78,7 +79,7 @@ func (app *Application) playByID(ctx context.Context, trackID int) error {
 	fmt.Printf("   Название: %s\n", track.Title)
 	fmt.Printf("   Альбом: %s\n", track.Album)
 	if track.Length > 0 {
-		duration := formatDuration(time.Duration(track.Length) * time.Second)
+		duration := utils.FormatDuration(time.Duration(track.Length) * time.Second)
 		fmt.Printf("   Продолжительность: %s\n", duration)
 	}
 	fmt.Println()
@@ -180,25 +181,25 @@ func displayProgress(status player.Status) {
 			fmt.Printf("\r%s  %s | %s / %s | Статус: %s",
 				statusIcon,
 				progress,
-				formatDuration(status.Current),
-				formatDuration(status.Total),
+				utils.FormatDuration(status.Current),
+				utils.FormatDuration(status.Total),
 				statusText)
 		} else {
 			fmt.Printf("\r%s  %s | %s / %s | Скорость: %.2fx | Статус: %s",
 				statusIcon,
 				progress,
-				formatDuration(status.Current),
-				formatDuration(status.Total),
+				utils.FormatDuration(status.Current),
+				utils.FormatDuration(status.Total),
 				status.Speed,
 				statusText)
 		}
 	} else {
 		if !status.IsPlaying {
 			fmt.Printf("\r⏸️  %s | Статус: На паузе | Потоковое воспроизведение",
-				formatDuration(status.Current))
+				utils.FormatDuration(status.Current))
 		} else {
 			fmt.Printf("\r⏱️  %s | Скорость: %.2fx | Потоковое воспроизведение",
-				formatDuration(status.Current),
+				utils.FormatDuration(status.Current),
 				status.Speed)
 		}
 	}

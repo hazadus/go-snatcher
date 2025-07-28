@@ -6,6 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/hazadus/go-snatcher/internal/data"
+	"github.com/hazadus/go-snatcher/internal/utils"
 )
 
 func TestNewModel(t *testing.T) {
@@ -42,17 +43,18 @@ func TestFormatDuration(t *testing.T) {
 		duration time.Duration
 		expected string
 	}{
-		{0, "00:00"},
-		{30 * time.Second, "00:30"},
-		{1 * time.Minute, "01:00"},
-		{1*time.Minute + 30*time.Second, "01:30"},
-		{10*time.Minute + 5*time.Second, "10:05"},
+		{0, "00:00:00"},
+		{30 * time.Second, "00:00:30"},
+		{1 * time.Minute, "00:01:00"},
+		{1*time.Minute + 30*time.Second, "00:01:30"},
+		{10*time.Minute + 5*time.Second, "00:10:05"},
+		{1*time.Hour + 2*time.Minute + 3*time.Second, "01:02:03"},
 	}
 
 	for _, test := range tests {
-		result := formatDuration(test.duration)
+		result := utils.FormatDuration(test.duration)
 		if result != test.expected {
-			t.Errorf("formatDuration(%v) = %s, expected %s", test.duration, result, test.expected)
+			t.Errorf("utils.FormatDuration(%v) = %s, expected %s", test.duration, result, test.expected)
 		}
 	}
 }

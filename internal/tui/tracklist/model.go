@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/hazadus/go-snatcher/internal/data"
 	"github.com/hazadus/go-snatcher/internal/track"
+	"github.com/hazadus/go-snatcher/internal/utils"
 )
 
 var (
@@ -48,7 +49,13 @@ func (d trackItemDelegate) Render(w io.Writer, m list.Model, index int, listItem
 		return
 	}
 
-	str := fmt.Sprintf("%d. %s - %s", i.track.ID, i.track.Artist, i.track.Title)
+	// Форматируем строку в виде таблицы: ID | Исполнитель | Название | Продолжительность
+	duration := utils.FormatDurationFromSeconds(i.track.Length)
+	str := fmt.Sprintf("%-4d %-20s %-50s %s",
+		i.track.ID,
+		utils.TruncateString(i.track.Artist, 20),
+		utils.TruncateString(i.track.Title, 50),
+		duration)
 
 	fn := itemStyle.Render
 	if index == m.Index() {
