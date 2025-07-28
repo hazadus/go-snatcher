@@ -117,3 +117,14 @@ func (d *AppData) DeleteTrackByID(id int) error {
 	}
 	return fmt.Errorf("трека с ID %d не найдено", id)
 }
+
+// UpdateTrack обновляет существующий трек
+func (d *AppData) UpdateTrack(updatedTrack TrackMetadata) error {
+	for i := range d.Tracks {
+		if d.Tracks[i].ID == updatedTrack.ID {
+			d.Tracks[i] = updatedTrack
+			return nil
+		}
+	}
+	return fmt.Errorf("трека с ID %d не найдено", updatedTrack.ID)
+}

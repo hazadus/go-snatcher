@@ -28,6 +28,11 @@ type TrackSelectedMsg struct {
 	Track data.TrackMetadata
 }
 
+// TrackEditMsg отправляется при выборе трека для редактирования
+type TrackEditMsg struct {
+	Track data.TrackMetadata
+}
+
 // trackItem реализует интерфейс list.Item для трека
 type trackItem struct {
 	track data.TrackMetadata
@@ -89,6 +94,7 @@ func NewModel(appData *data.AppData) *Model {
 	l := list.New(items, trackItemDelegate{}, 0, 0)
 	l.Title = "Треки"
 	l.SetShowStatusBar(false)
+	l.SetShowTitle(true)      // Убеждаемся, что заголовок отображается
 	l.SetFilteringEnabled(true)
 	l.Styles.Title = titleStyle
 	l.Styles.PaginationStyle = paginationStyle
@@ -105,12 +111,27 @@ func (m *Model) Init() tea.Cmd {
 	return nil
 }
 
+// RefreshData обновляет данные модели без пересоздания
+func (m *Model) RefreshData() {
+	// Получаем актуальные треки
+	tracks := m.trackManager.ListTracks()
+
+	// Преобразуем треки в элементы списка
+	items := make([]list.Item, len(tracks))
+	for i, t := range tracks {
+		items[i] = trackItem{track: t}
+	}
+
+	// Обновляем элементы в существующем списке
+	m.list.SetItems(items)
+}
+
 // Update обрабатывает сообщения и обновляет модель
 func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.list.SetWidth(msg.Width)
-		m.list.SetHeight(msg.Height - 2)
+		m.list.SetHeight(msg.Height - 4) // Оставляем место для заголовка и справки
 		return m, nil
 
 	case tea.KeyMsg:
@@ -130,6 +151,18 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 					}
 				}
 			}
+
+		case "e":
+			// Редактирование выбранного трека
+			selectedItem := m.list.SelectedItem()
+			if selectedItem != nil {
+				if item, ok := selectedItem.(trackItem); ok {
+					// Отправляем сообщение о редактировании трека
+					return m, func() tea.Msg {
+						return TrackEditMsg{Track: item.track}
+					}
+				}
+			}
 		}
 	}
 
@@ -144,5 +177,9 @@ func (m *Model) View() string {
 	if m.quitting {
 		return quitTextStyle.Render("До свидания!")
 	}
-	return "\n" + m.list.View()
+
+	view := m.list.View()
+	// Добавляем дополнительную справку
+	extraHelp := helpStyle.Render("Enter: воспроизвести • e: редактировать • q: выход")
+	return view + "\n" + extraHelp
 }

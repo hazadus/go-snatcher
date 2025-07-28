@@ -19,7 +19,7 @@ func (app *Application) createTUICommand() *cobra.Command {
 
 func (app *Application) launchTUI() {
 	// Создаем экземпляр TUI приложения
-	tuiApp := tui.NewApp(app.Data)
+	tuiApp := tui.NewApp(app.Data, app.SaveData)
 
 	// Запускаем TUI
 	if err := tuiApp.Run(); err != nil {

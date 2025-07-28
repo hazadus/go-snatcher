@@ -5,26 +5,29 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/hazadus/go-snatcher/internal/data"
 	"github.com/hazadus/go-snatcher/internal/player"
+	"github.com/hazadus/go-snatcher/internal/tui/editor"
 	tuiPlayer "github.com/hazadus/go-snatcher/internal/tui/player"
 	"github.com/hazadus/go-snatcher/internal/tui/tracklist"
 )
 
 // App представляет основное TUI приложение
 type App struct {
-	appData *data.AppData
+	appData  *data.AppData
+	saveFunc func() error // Функция для сохранения данных
 }
 
 // NewApp создает новый экземпляр TUI приложения
-func NewApp(appData *data.AppData) *App {
+func NewApp(appData *data.AppData, saveFunc func() error) *App {
 	return &App{
-		appData: appData,
+		appData:  appData,
+		saveFunc: saveFunc,
 	}
 }
 
 // Run запускает TUI приложение
 func (app *App) Run() error {
 	// Создаем модель для Bubble Tea
-	model := newMainModel(app.appData)
+	model := newMainModel(app.appData, app.saveFunc)
 
 	// Создаем программу Bubble Tea
 	p := tea.NewProgram(model, tea.WithAltScreen())
@@ -46,6 +49,7 @@ type screenType int
 const (
 	tracklistScreen screenType = iota
 	playerScreen
+	editorScreen
 )
 
 // mainModel представляет главную модель TUI
@@ -54,11 +58,13 @@ type mainModel struct {
 	currentScreen  screenType
 	tracklistModel *tracklist.Model
 	playerModel    *tuiPlayer.Model
+	editorModel    *editor.Model
 	globalPlayer   *player.Player // Глобальный плеер для переиспользования
+	saveFunc       func() error   // Функция для сохранения данных
 }
 
 // newMainModel создает новую главную модель
-func newMainModel(appData *data.AppData) *mainModel {
+func newMainModel(appData *data.AppData, saveFunc func() error) *mainModel {
 	// Создаем модель списка треков
 	tracklistModel := tracklist.NewModel(appData)
 
@@ -70,7 +76,9 @@ func newMainModel(appData *data.AppData) *mainModel {
 		currentScreen:  tracklistScreen,
 		tracklistModel: tracklistModel,
 		playerModel:    nil, // Будет создана при выборе трека
+		editorModel:    nil, // Будет создана при редактировании трека
 		globalPlayer:   globalPlayer,
+		saveFunc:       saveFunc,
 	}
 }
 
@@ -102,10 +110,28 @@ func (m *mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.playerModel = tuiPlayer.NewModelWithPlayer(msg.Track, m.globalPlayer)
 		return m, m.playerModel.Init()
 
+	case tracklist.TrackEditMsg:
+		// Переключаемся на экран редактирования с выбранным треком
+		m.currentScreen = editorScreen
+		m.editorModel = editor.NewModel(m.appData, msg.Track, m.saveFunc)
+		return m, m.editorModel.Init()
+
 	case tuiPlayer.GoBackMsg:
 		// Возвращаемся к списку треков
 		m.currentScreen = tracklistScreen
 		m.playerModel = nil
+		return m, nil
+
+	case editor.GoBackMsg:
+		// Возвращаемся к списку треков из редактора
+		m.currentScreen = tracklistScreen
+		m.editorModel = nil
+		// Обновляем данные в существующей модели списка треков
+		m.tracklistModel.RefreshData()
+		return m, nil
+
+	case editor.TrackSavedMsg:
+		// Трек сохранен - остаемся в редакторе, но можно добавить уведомление
 		return m, nil
 
 	case tea.WindowSizeMsg:
@@ -123,6 +149,12 @@ func (m *mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.playerModel = playerModel
 				}
 				return m, playerCmd
+			}
+		case editorScreen:
+			if m.editorModel != nil {
+				var editorCmd tea.Cmd
+				m.editorModel, editorCmd = m.editorModel.Update(msg)
+				return m, editorCmd
 			}
 		}
 		return m, nil
@@ -144,6 +176,13 @@ func (m *mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			cmd = playerCmd
 		}
+
+	case editorScreen:
+		if m.editorModel != nil {
+			var editorCmd tea.Cmd
+			m.editorModel, editorCmd = m.editorModel.Update(msg)
+			cmd = editorCmd
+		}
 	}
 
 	return m, cmd
@@ -160,6 +199,12 @@ func (m *mainModel) View() string {
 			return m.playerModel.View()
 		}
 		return "Ошибка: модель плеера не инициализирована"
+
+	case editorScreen:
+		if m.editorModel != nil {
+			return m.editorModel.View()
+		}
+		return "Ошибка: модель редактора не инициализирована"
 
 	default:
 		return "Неизвестный экран"

@@ -21,3 +21,8 @@ func NewManager(appData *data.AppData) *Manager {
 func (m *Manager) ListTracks() []data.TrackMetadata {
 	return m.appData.Tracks
 }
+
+// UpdateTrack обновляет существующий трек
+func (m *Manager) UpdateTrack(updatedTrack data.TrackMetadata) error {
+	return m.appData.UpdateTrack(updatedTrack)
+}

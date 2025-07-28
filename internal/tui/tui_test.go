@@ -23,8 +23,13 @@ func TestMainModelRouting(t *testing.T) {
 		},
 	}
 
+	// Создаем функцию сохранения для тестов
+	saveFunc := func() error {
+		return nil
+	}
+
 	// Создаем главную модель
-	model := newMainModel(testData)
+	model := newMainModel(testData, saveFunc)
 
 	// Проверяем начальное состояние
 	if model.currentScreen != tracklistScreen {
@@ -90,7 +95,12 @@ func TestMainModelView(t *testing.T) {
 		},
 	}
 
-	model := newMainModel(testData)
+	// Создаем функцию сохранения для тестов
+	saveFunc := func() error {
+		return nil
+	}
+
+	model := newMainModel(testData, saveFunc)
 
 	// Тестируем отображение списка треков
 	view := model.View()
