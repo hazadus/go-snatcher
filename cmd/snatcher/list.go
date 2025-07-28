@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/hazadus/go-snatcher/internal/track"
 	"github.com/hazadus/go-snatcher/internal/uploader"
 )
 
@@ -22,12 +23,16 @@ func (app *Application) createListCommand() *cobra.Command {
 }
 
 func (app *Application) listTracks() {
-	if len(app.Data.Tracks) == 0 {
+	// Создаем менеджер треков
+	trackManager := track.NewManager(app.Data)
+	tracks := trackManager.ListTracks()
+
+	if len(tracks) == 0 {
 		fmt.Println("📚 Библиотека пуста. Добавьте треки с помощью команды 'add'.")
 		return
 	}
 
-	fmt.Printf("📚 Найдено треков: %d\n\n", len(app.Data.Tracks))
+	fmt.Printf("📚 Найдено треков: %d\n\n", len(tracks))
 
 	// Выводим заголовок таблицы
 	fmt.Printf("%-4s %-30s %-30s %-20s %-10s %-12s\n",
@@ -35,7 +40,7 @@ func (app *Application) listTracks() {
 	fmt.Println(strings.Repeat("-", 120))
 
 	// Выводим каждый трек
-	for _, track := range app.Data.Tracks {
+	for _, track := range tracks {
 		// Форматируем длительность
 		duration := formatDurationFromSeconds(track.Length)
 		if track.Length == 0 {
