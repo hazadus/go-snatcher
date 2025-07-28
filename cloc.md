@@ -1,9 +1,9 @@
-cloc|github.com/AlDanial/cloc v 2.02  T=0.02 s (973.1 files/s, 106029.4 lines/s)
+cloc|github.com/AlDanial/cloc v 2.02  T=0.03 s (947.2 files/s, 109549.0 lines/s)
 --- | ---
 
 Language|files|blank|comment|code
 :-------|-------:|-------:|-------:|-------:
-Go|20|332|264|1581
-Markdown|4|109|0|329
+Go|23|405|306|1898
+Markdown|3|98|0|300
 --------|--------|--------|--------|--------
-SUM:|24|441|264|1910
+SUM:|26|503|306|2198
