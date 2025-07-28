@@ -102,3 +102,15 @@ func (d *AppData) TrackByID(id int) (*TrackMetadata, error) {
 	}
 	return nil, fmt.Errorf("трека с ID %d не найдено", id)
 }
+
+// DeleteTrackByID удаляет трек по ID
+func (d *AppData) DeleteTrackByID(id int) error {
+	for i, track := range d.Tracks {
+		if track.ID == id {
+			// Удаляем элемент из слайса
+			d.Tracks = append(d.Tracks[:i], d.Tracks[i+1:]...)
+			return nil
+		}
+	}
+	return fmt.Errorf("трека с ID %d не найдено", id)
+}
