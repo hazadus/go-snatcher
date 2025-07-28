@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
 
@@ -24,6 +25,7 @@ type Config struct {
 // Uploader обертка для S3 uploader
 type Uploader struct {
 	s3Uploader *s3manager.Uploader
+	s3Client   *s3.S3
 	config     *Config
 }
 
@@ -51,6 +53,7 @@ func NewUploader(config *Config) (*Uploader, error) {
 
 	return &Uploader{
 		s3Uploader: s3manager.NewUploader(sess),
+		s3Client:   s3.New(sess),
 		config:     config,
 	}, nil
 }
@@ -70,4 +73,18 @@ func (u *Uploader) UploadFile(ctx context.Context, reader io.Reader, key string)
 	// Формируем URL файла
 	url := fmt.Sprintf("%s/%s/%s", u.config.Endpoint, u.config.BucketName, key)
 	return url, nil
+}
+
+// DeleteFile удаляет файл из S3
+func (u *Uploader) DeleteFile(ctx context.Context, key string) error {
+	_, err := u.s3Client.DeleteObjectWithContext(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(u.config.BucketName),
+		Key:    aws.String(key),
+	})
+
+	if err != nil {
+		return fmt.Errorf("ошибка удаления файла из S3: %w", err)
+	}
+
+	return nil
 }
