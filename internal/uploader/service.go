@@ -1,6 +1,8 @@
+// Package uploader предоставляет функционал для загрузки файлов с метаданными
 package uploader
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -37,7 +39,7 @@ type UploadResult struct {
 }
 
 // UploadFile загружает файл с метаданными
-func (s *Service) UploadFile(filePath string, progressCallback func(int64)) (*UploadResult, error) {
+func (s *Service) UploadFile(ctx context.Context, filePath string, progressCallback func(int64)) (*UploadResult, error) {
 	// Проверяем существование файла
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		return nil, fmt.Errorf("файл не найден: %s", filePath)
@@ -73,8 +75,8 @@ func (s *Service) UploadFile(filePath string, progressCallback func(int64)) (*Up
 	fileName := getFileNameWithoutExt(filePath)
 	s3Key := fileName + ".mp3"
 
-	// Загружаем файл
-	url, err := s.s3Uploader.UploadFile(reader, s3Key)
+	// Загружаем файл с контекстом
+	url, err := s.s3Uploader.UploadFile(ctx, reader, s3Key)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка загрузки в S3: %w", err)
 	}

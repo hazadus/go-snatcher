@@ -1,6 +1,8 @@
+// Package s3 предоставляет функционал для загрузки файлов в Amazon S3
 package s3
 
 import (
+	"context"
 	"fmt"
 	"io"
 
@@ -54,8 +56,8 @@ func NewUploader(config *Config) (*Uploader, error) {
 }
 
 // UploadFile загружает файл в S3
-func (u *Uploader) UploadFile(reader io.Reader, key string) (string, error) {
-	_, err := u.s3Uploader.Upload(&s3manager.UploadInput{
+func (u *Uploader) UploadFile(ctx context.Context, reader io.Reader, key string) (string, error) {
+	_, err := u.s3Uploader.UploadWithContext(ctx, &s3manager.UploadInput{
 		Bucket: aws.String(u.config.BucketName),
 		Key:    aws.String(key),
 		Body:   reader,

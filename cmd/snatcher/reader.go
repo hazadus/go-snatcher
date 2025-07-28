@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -16,7 +17,7 @@ type StreamingReader struct {
 }
 
 // NewStreamingReader создает новый потоковый ридер
-func NewStreamingReader(url string, bufferSize int) (*StreamingReader, error) {
+func NewStreamingReader(ctx context.Context, url string, bufferSize int) (*StreamingReader, error) {
 	// Создаем HTTP клиент без таймаута для длительного потокового чтения
 	client := &http.Client{
 		// Убираем общий таймаут, оставляем только таймауты соединения
@@ -41,7 +42,7 @@ func NewStreamingReader(url string, bufferSize int) (*StreamingReader, error) {
 	}
 
 	// Создаем запрос с заголовками для потокового чтения
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка создания запроса: %w", err)
 	}

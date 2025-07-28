@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -12,20 +13,23 @@ import (
 )
 
 // createAddCommand создает команду add с привязкой к экземпляру приложения
-func (app *Application) createAddCommand() *cobra.Command {
+func (app *Application) createAddCommand(ctx context.Context) *cobra.Command {
 	return &cobra.Command{
 		Use:   "add [file path]",
 		Short: "Upload an mp3 file to S3 storage",
 		Long:  `Upload an mp3 file to S3 storage with progress tracking.`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			return app.uploadToS3(args[0])
+			// Создаем контекст с таймаутом для загрузки (10 минут)
+			uploadCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+			defer cancel()
+			return app.uploadToS3(uploadCtx, args[0])
 		},
 	}
 }
 
 // uploadToS3 загружает файл в S3 с отображением прогресса
-func (app *Application) uploadToS3(filePath string) error {
+func (app *Application) uploadToS3(ctx context.Context, filePath string) error {
 	// Создаем S3 uploader
 	s3Config := &s3.Config{
 		Region:     app.Config.AwsRegion,
@@ -64,33 +68,42 @@ func (app *Application) uploadToS3(filePath string) error {
 	go func() {
 		startTime := time.Now()
 
-		for progress := range progressChan {
-			if progress > 0 {
-				elapsed := time.Since(startTime)
-				percentage := float64(progress) / float64(fileInfo.Size) * 100
-
-				// Вычисляем скорость загрузки
-				speed := float64(progress) / elapsed.Seconds()
-
-				// Вычисляем оставшееся время
-				remainingBytes := fileInfo.Size - progress
-				var remainingTime time.Duration
-				if speed > 0 {
-					remainingTime = time.Duration(float64(remainingBytes)/speed) * time.Second
+		for {
+			select {
+			case progress, ok := <-progressChan:
+				if !ok {
+					return // Канал закрыт
 				}
+				if progress > 0 {
+					elapsed := time.Since(startTime)
+					percentage := float64(progress) / float64(fileInfo.Size) * 100
 
-				// Очищаем строку и выводим прогресс
-				fmt.Printf("\r📊 Прогресс: %.1f%% | Скорость: %s/s | Прошло: %s | Осталось: %s",
-					percentage,
-					uploader.FormatFileSize(int64(speed)),
-					uploader.FormatDuration(elapsed),
-					uploader.FormatDuration(remainingTime))
+					// Вычисляем скорость загрузки
+					speed := float64(progress) / elapsed.Seconds()
+
+					// Вычисляем оставшееся время
+					remainingBytes := fileInfo.Size - progress
+					var remainingTime time.Duration
+					if speed > 0 {
+						remainingTime = time.Duration(float64(remainingBytes)/speed) * time.Second
+					}
+
+					// Очищаем строку и выводим прогресс
+					fmt.Printf("\r📊 Прогресс: %.1f%% | Скорость: %s/s | Прошло: %s | Осталось: %s",
+						percentage,
+						uploader.FormatFileSize(int64(speed)),
+						uploader.FormatDuration(elapsed),
+						uploader.FormatDuration(remainingTime))
+				}
+			case <-ctx.Done():
+				fmt.Printf("\n🚫 Загрузка отменена\n")
+				return
 			}
 		}
 	}()
 
-	// Выполняем загрузку
-	result, err := uploadService.UploadFile(filePath, func(bytesRead int64) {
+	// Выполняем загрузку с контекстом
+	result, err := uploadService.UploadFile(ctx, filePath, func(bytesRead int64) {
 		progressChan <- bytesRead
 	})
 
@@ -99,6 +112,11 @@ func (app *Application) uploadToS3(filePath string) error {
 
 	if err != nil {
 		return fmt.Errorf("ошибка загрузки файла: %w", err)
+	}
+
+	// Проверяем, не была ли операция отменена
+	if ctx.Err() != nil {
+		return fmt.Errorf("операция отменена: %w", ctx.Err())
 	}
 
 	fmt.Printf("\n✅ Файл успешно загружен в S3!\n")
@@ -117,5 +135,3 @@ func (app *Application) uploadToS3(filePath string) error {
 	fmt.Printf("\n📦 Данные трека добавлены в %s\n", defaultDataFilePath)
 	return nil
 }
-
-

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -16,7 +17,7 @@ import (
 )
 
 // createPlayCommand создает команду play с привязкой к экземпляру приложения
-func (app *Application) createPlayCommand() *cobra.Command {
+func (app *Application) createPlayCommand(ctx context.Context) *cobra.Command {
 	return &cobra.Command{
 		Use:   "play [trackid]",
 		Short: "Play a track by its ID",
@@ -27,7 +28,7 @@ func (app *Application) createPlayCommand() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("неверный ID трека: %s", args[0])
 			}
-			return app.playByID(trackID)
+			return app.playByID(ctx, trackID)
 		},
 	}
 }
@@ -54,7 +55,7 @@ func readSingleChar() (byte, error) {
 	return buffer[0], err
 }
 
-func (app *Application) playByID(trackID int) error {
+func (app *Application) playByID(ctx context.Context, trackID int) error {
 	// Находим трек по ID
 	track, err := app.Data.TrackByID(trackID)
 	if err != nil {
@@ -81,7 +82,7 @@ func (app *Application) playByID(trackID int) error {
 
 	// Создаем потоковый ридер с большим буфером для стабильного воспроизведения
 	const bufferSize = 256 * 1024 // 256KB буфер для более стабильного потока
-	streamReader, err := NewStreamingReader(track.URL, bufferSize)
+	streamReader, err := NewStreamingReader(ctx, track.URL, bufferSize)
 	if err != nil {
 		return fmt.Errorf("ошибка создания потокового ридера: %w", err)
 	}
@@ -285,13 +286,17 @@ func (app *Application) playByID(trackID int) error {
 		}
 	}()
 
-	// Ждем завершения воспроизведения или прерывания
+	// Ждем завершения воспроизведения, прерывания или отмены контекста
 	select {
 	case <-done:
 		fmt.Println("\n✅ Потоковое воспроизведение завершено")
 	case <-interrupt:
 		fmt.Println("\n⏹️  Воспроизведение остановлено пользователем")
 		speaker.Clear() // Останавливаем воспроизведение
+	case <-ctx.Done():
+		fmt.Println("\n🚫 Операция отменена")
+		speaker.Clear() // Останавливаем воспроизведение
+		return ctx.Err()
 	}
 
 	return nil

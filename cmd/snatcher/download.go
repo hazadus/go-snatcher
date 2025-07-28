@@ -1,32 +1,37 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/kkdai/youtube/v2"
 	"github.com/spf13/cobra"
 )
 
 // createDownloadCommand создает команду download с привязкой к экземпляру приложения
-func (app *Application) createDownloadCommand() *cobra.Command {
+func (app *Application) createDownloadCommand(ctx context.Context) *cobra.Command {
 	return &cobra.Command{
 		Use:   "download [YouTube URL]",
 		Short: "Download audio from YouTube video as MP3",
 		Long:  `Download audio from YouTube video and save it as MP3 file to the configured download directory.`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			return app.downloadYouTubeAudio(args[0])
+			// Создаем контекст с таймаутом для скачивания (15 минут)
+			downloadCtx, cancel := context.WithTimeout(ctx, 15*time.Minute)
+			defer cancel()
+			return app.downloadYouTubeAudio(downloadCtx, args[0])
 		},
 	}
 }
 
 // downloadYouTubeAudio скачивает аудио из YouTube видео
-func (app *Application) downloadYouTubeAudio(url string) error {
+func (app *Application) downloadYouTubeAudio(ctx context.Context, url string) error {
 	// Извлекаем ID видео из URL
 	videoID, err := extractVideoID(url)
 	if err != nil {
@@ -38,8 +43,8 @@ func (app *Application) downloadYouTubeAudio(url string) error {
 	// Создаем YouTube client
 	client := youtube.Client{}
 
-	// Получаем информацию о видео
-	video, err := client.GetVideo(videoID)
+	// Получаем информацию о видео с контекстом
+	video, err := client.GetVideoContext(ctx, videoID)
 	if err != nil {
 		return fmt.Errorf("ошибка получения информации о видео: %w", err)
 	}
@@ -55,8 +60,8 @@ func (app *Application) downloadYouTubeAudio(url string) error {
 
 	fmt.Printf("Используем формат: itag=%d, качество=%s\n", audioFormat.ItagNo, audioFormat.Quality)
 
-	// Получаем поток для скачивания
-	stream, _, err := client.GetStream(video, audioFormat)
+	// Получаем поток для скачивания с контекстом
+	stream, _, err := client.GetStreamContext(ctx, video, audioFormat)
 	if err != nil {
 		return fmt.Errorf("ошибка получения потока: %w", err)
 	}
@@ -81,9 +86,20 @@ func (app *Application) downloadYouTubeAudio(url string) error {
 	// Копируем данные из потока в файл
 	fmt.Printf("Скачиваем в файл: %s\n", filePath)
 
-	_, err = io.Copy(file, stream)
-	if err != nil {
-		return fmt.Errorf("ошибка скачивания: %w", err)
+	// Используем io.Copy с проверкой контекста
+	done := make(chan error, 1)
+	go func() {
+		_, err := io.Copy(file, stream)
+		done <- err
+	}()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			return fmt.Errorf("ошибка скачивания: %w", err)
+		}
+	case <-ctx.Done():
+		return fmt.Errorf("скачивание отменено: %w", ctx.Err())
 	}
 
 	fmt.Printf("Аудио успешно скачано: %s\n", filePath)

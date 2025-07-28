@@ -1,3 +1,4 @@
+// Package metadata предоставляет функционал для извлечения метаданных из аудио файлов
 package metadata
 
 import (
@@ -36,7 +37,9 @@ func NewExtractor() *Extractor {
 // ExtractFromReader извлекает метаданные из io.Reader
 func (e *Extractor) ExtractFromReader(reader io.ReadSeeker, source string) TrackMetadata {
 	// Сбрасываем reader в начало
-	reader.Seek(0, io.SeekStart)
+	if _, err := reader.Seek(0, io.SeekStart); err != nil {
+		return e.getDefaultMetadata(source)
+	}
 
 	metadata, err := tag.ReadFrom(reader)
 	if err != nil {
