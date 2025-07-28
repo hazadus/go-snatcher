@@ -7,6 +7,9 @@ build:
 format:
   go fmt ./...
 
+test:
+  go test ./...
+
 lint:
   golangci-lint run ./...
 
