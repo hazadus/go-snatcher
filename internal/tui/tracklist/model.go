@@ -1,0 +1,141 @@
+// Package tracklist содержит модель экрана списка треков для TUI
+package tracklist
+
+import (
+	"fmt"
+	"io"
+	"strings"
+
+	"github.com/charmbracelet/bubbles/list"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/hazadus/go-snatcher/internal/data"
+	"github.com/hazadus/go-snatcher/internal/track"
+)
+
+var (
+	titleStyle        = lipgloss.NewStyle().MarginLeft(2)
+	itemStyle         = lipgloss.NewStyle().PaddingLeft(4)
+	selectedItemStyle = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("170"))
+	paginationStyle   = list.DefaultStyles().PaginationStyle.PaddingLeft(4)
+	helpStyle         = list.DefaultStyles().HelpStyle.PaddingLeft(4).PaddingBottom(1)
+	quitTextStyle     = lipgloss.NewStyle().Margin(1, 0, 2, 4)
+)
+
+// TrackSelectedMsg отправляется при выборе трека для воспроизведения
+type TrackSelectedMsg struct {
+	Track data.TrackMetadata
+}
+
+// trackItem реализует интерфейс list.Item для трека
+type trackItem struct {
+	track data.TrackMetadata
+}
+
+func (i trackItem) FilterValue() string {
+	return fmt.Sprintf("%s %s", i.track.Artist, i.track.Title)
+}
+
+// trackItemDelegate реализует отображение элементов списка
+type trackItemDelegate struct{}
+
+func (d trackItemDelegate) Height() int                             { return 1 }
+func (d trackItemDelegate) Spacing() int                            { return 0 }
+func (d trackItemDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
+func (d trackItemDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
+	i, ok := listItem.(trackItem)
+	if !ok {
+		return
+	}
+
+	str := fmt.Sprintf("%d. %s - %s", i.track.ID, i.track.Artist, i.track.Title)
+
+	fn := itemStyle.Render
+	if index == m.Index() {
+		fn = func(s ...string) string {
+			return selectedItemStyle.Render("> " + strings.Join(s, " "))
+		}
+	}
+
+	fmt.Fprint(w, fn(str))
+}
+
+// Model представляет модель экрана списка треков
+type Model struct {
+	list         list.Model
+	trackManager *track.Manager
+	quitting     bool
+}
+
+// NewModel создает новую модель списка треков
+func NewModel(appData *data.AppData) *Model {
+	trackManager := track.NewManager(appData)
+	tracks := trackManager.ListTracks()
+
+	// Преобразуем треки в элементы списка
+	items := make([]list.Item, len(tracks))
+	for i, t := range tracks {
+		items[i] = trackItem{track: t}
+	}
+
+	// Создаем список
+	l := list.New(items, trackItemDelegate{}, 0, 0)
+	l.Title = "Треки"
+	l.SetShowStatusBar(false)
+	l.SetFilteringEnabled(true)
+	l.Styles.Title = titleStyle
+	l.Styles.PaginationStyle = paginationStyle
+	l.Styles.HelpStyle = helpStyle
+
+	return &Model{
+		list:         l,
+		trackManager: trackManager,
+	}
+}
+
+// Init инициализирует модель
+func (m *Model) Init() tea.Cmd {
+	return nil
+}
+
+// Update обрабатывает сообщения и обновляет модель
+func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.list.SetWidth(msg.Width)
+		m.list.SetHeight(msg.Height - 2)
+		return m, nil
+
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "ctrl+c", "q":
+			m.quitting = true
+			return m, tea.Quit
+
+		case "enter":
+			// Получаем выбранный элемент
+			selectedItem := m.list.SelectedItem()
+			if selectedItem != nil {
+				if item, ok := selectedItem.(trackItem); ok {
+					// Отправляем сообщение о выборе трека
+					return m, func() tea.Msg {
+						return TrackSelectedMsg{Track: item.track}
+					}
+				}
+			}
+		}
+	}
+
+	// Обновляем список
+	var cmd tea.Cmd
+	m.list, cmd = m.list.Update(msg)
+	return m, cmd
+}
+
+// View отображает модель
+func (m *Model) View() string {
+	if m.quitting {
+		return quitTextStyle.Render("До свидания!")
+	}
+	return "\n" + m.list.View()
+}

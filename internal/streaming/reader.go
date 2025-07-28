@@ -1,4 +1,5 @@
-package main
+// Package streaming содержит компоненты для потокового воспроизведения аудио
+package streaming
 
 import (
 	"bufio"
@@ -9,15 +10,15 @@ import (
 	"time"
 )
 
-// StreamingReader представляет буферизованный поток для чтения данных порциями
-type StreamingReader struct {
+// Reader представляет буферизованный поток для чтения данных порциями
+type Reader struct {
 	reader     *bufio.Reader
 	resp       *http.Response
 	bufferSize int
 }
 
-// NewStreamingReader создает новый потоковый ридер
-func NewStreamingReader(ctx context.Context, url string, bufferSize int) (*StreamingReader, error) {
+// NewReader создает новый потоковый ридер
+func NewReader(ctx context.Context, url string, bufferSize int) (*Reader, error) {
 	// Создаем HTTP клиент без таймаута для длительного потокового чтения
 	client := &http.Client{
 		// Убираем общий таймаут, оставляем только таймауты соединения
@@ -64,7 +65,7 @@ func NewStreamingReader(ctx context.Context, url string, bufferSize int) (*Strea
 		return nil, fmt.Errorf("ошибка HTTP: %s", resp.Status)
 	}
 
-	return &StreamingReader{
+	return &Reader{
 		reader:     bufio.NewReaderSize(resp.Body, bufferSize),
 		resp:       resp,
 		bufferSize: bufferSize,
@@ -72,11 +73,25 @@ func NewStreamingReader(ctx context.Context, url string, bufferSize int) (*Strea
 }
 
 // Read реализует интерфейс io.Reader для потокового чтения
-func (sr *StreamingReader) Read(p []byte) (n int, err error) {
+func (sr *Reader) Read(p []byte) (n int, err error) {
 	return sr.reader.Read(p)
 }
 
 // Close закрывает соединение
-func (sr *StreamingReader) Close() error {
+func (sr *Reader) Close() error {
 	return sr.resp.Body.Close()
+}
+
+// GetStreamStatus возвращает текстовое описание состояния потока
+func GetStreamStatus(stuckCount int) string {
+	switch {
+	case stuckCount == 0:
+		return "Потоковое воспроизведение"
+	case stuckCount <= 3:
+		return "Буферизация..."
+	case stuckCount <= 5:
+		return "Медленная загрузка"
+	default:
+		return "Возможная проблема с соединением"
+	}
 }

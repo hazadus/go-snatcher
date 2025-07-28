@@ -110,6 +110,7 @@ func (app *Application) createRootCommand(ctx context.Context) *cobra.Command {
 	rootCmd.AddCommand(app.createPlayCommand(ctx))
 	rootCmd.AddCommand(app.createDownloadCommand(ctx))
 	rootCmd.AddCommand(app.createDeleteCommand(ctx))
+	rootCmd.AddCommand(app.createTUICommand())
 
 	return rootCmd
 }
