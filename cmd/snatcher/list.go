@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"github.com/hazadus/go-snatcher/internal/uploader"
 )
 
 // createListCommand создает команду list с привязкой к экземпляру приложения
@@ -41,7 +43,7 @@ func (app *Application) listTracks() {
 		}
 
 		// Форматируем размер файла
-		fileSize := formatFileSize(track.FileSize)
+		fileSize := uploader.FormatFileSize(track.FileSize)
 
 		// Обрезаем длинные строки для красивого отображения
 		artist := truncateString(track.Artist, 28)
