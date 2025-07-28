@@ -6,6 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/hazadus/go-snatcher/internal/data"
+	"github.com/hazadus/go-snatcher/internal/tui/app"
 	"github.com/hazadus/go-snatcher/internal/tui/player"
 	"github.com/hazadus/go-snatcher/internal/tui/tracklist"
 )
@@ -29,19 +30,13 @@ func TestMainModelRouting(t *testing.T) {
 	}
 
 	// Создаем главную модель
-	model := newMainModel(testData, saveFunc)
+	model := app.NewMainModel(testData, saveFunc)
 
 	// Проверяем начальное состояние
-	if model.currentScreen != tracklistScreen {
-		t.Errorf("Expected initial screen to be tracklistScreen, got %v", model.currentScreen)
-	}
-
-	if model.tracklistModel == nil {
-		t.Error("Expected tracklistModel to be initialized")
-	}
-
-	if model.playerModel != nil {
-		t.Error("Expected playerModel to be nil initially")
+	// Поскольку поля модели теперь приватные, проверяем через поведение
+	view := model.View()
+	if view == "" {
+		t.Error("Expected non-empty view for initial state")
 	}
 
 	// Тестируем переключение на экран плеера
@@ -50,27 +45,23 @@ func TestMainModelRouting(t *testing.T) {
 	}
 
 	updatedModel, _ := model.Update(trackSelectedMsg)
-	model = updatedModel.(*mainModel)
+	model = updatedModel.(*app.MainModel)
 
-	if model.currentScreen != playerScreen {
-		t.Errorf("Expected screen to be playerScreen after TrackSelectedMsg, got %v", model.currentScreen)
-	}
-
-	if model.playerModel == nil {
-		t.Error("Expected playerModel to be initialized after TrackSelectedMsg")
+	// Проверяем, что экран переключился (через изменение view)
+	newView := model.View()
+	if newView == view {
+		t.Error("Expected view to change after TrackSelectedMsg")
 	}
 
 	// Тестируем возврат к списку треков
 	goBackMsg := player.GoBackMsg{}
 	updatedModel, _ = model.Update(goBackMsg)
-	model = updatedModel.(*mainModel)
+	model = updatedModel.(*app.MainModel)
 
-	if model.currentScreen != tracklistScreen {
-		t.Errorf("Expected screen to be tracklistScreen after GoBackMsg, got %v", model.currentScreen)
-	}
-
-	if model.playerModel != nil {
-		t.Error("Expected playerModel to be nil after GoBackMsg")
+	// Проверяем, что вернулись к исходному виду
+	backView := model.View()
+	if backView == newView {
+		t.Error("Expected view to change back after GoBackMsg")
 	}
 
 	// Тестируем глобальные горячие клавиши
@@ -100,7 +91,7 @@ func TestMainModelView(t *testing.T) {
 		return nil
 	}
 
-	model := newMainModel(testData, saveFunc)
+	model := app.NewMainModel(testData, saveFunc)
 
 	// Тестируем отображение списка треков
 	view := model.View()
@@ -113,19 +104,16 @@ func TestMainModelView(t *testing.T) {
 		Track: testData.Tracks[0],
 	}
 	updatedModel, _ := model.Update(trackSelectedMsg)
-	model = updatedModel.(*mainModel)
+	model = updatedModel.(*app.MainModel)
 
 	// Тестируем отображение плеера
-	view = model.View()
-	if view == "" {
+	playerView := model.View()
+	if playerView == "" {
 		t.Error("Expected non-empty view for player screen")
 	}
 
-	// Тестируем состояние с несуществующим экраном
-	model.currentScreen = screenType(999)
-	view = model.View()
-	expectedError := "Неизвестный экран"
-	if view != expectedError {
-		t.Errorf("Expected '%s' for unknown screen, got '%s'", expectedError, view)
+	// Проверяем, что вид изменился
+	if playerView == view {
+		t.Error("Expected different view for player screen compared to tracklist")
 	}
 }

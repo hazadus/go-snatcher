@@ -94,7 +94,7 @@ func NewModel(appData *data.AppData) *Model {
 	l := list.New(items, trackItemDelegate{}, 0, 0)
 	l.Title = "Треки"
 	l.SetShowStatusBar(false)
-	l.SetShowTitle(true)      // Убеждаемся, что заголовок отображается
+	l.SetShowTitle(true) // Убеждаемся, что заголовок отображается
 	l.SetFilteringEnabled(true)
 	l.Styles.Title = titleStyle
 	l.Styles.PaginationStyle = paginationStyle
