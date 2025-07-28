@@ -3,6 +3,7 @@ package player
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/charmbracelet/bubbles/progress"
 	tea "github.com/charmbracelet/bubbletea"
@@ -62,10 +63,12 @@ type Model struct {
 	error       error
 	width       int
 	height      int
+	appData     *data.AppData // Ссылка на данные приложения для сохранения позиции
+	saveFunc    func() error  // Функция для сохранения данных
 }
 
 // NewModel создает новую модель плеера
-func NewModel(track data.TrackMetadata) *Model {
+func NewModel(track data.TrackMetadata, appData *data.AppData, saveFunc func() error) *Model {
 	// Создаем прогресс-бар
 	prog := progress.New(progress.WithDefaultGradient())
 	prog.Width = 40
@@ -75,11 +78,13 @@ func NewModel(track data.TrackMetadata) *Model {
 		player:      player.NewPlayer(),
 		progressBar: prog,
 		isPlaying:   false,
+		appData:     appData,
+		saveFunc:    saveFunc,
 	}
 }
 
 // NewModelWithPlayer создает новую модель плеера с использованием существующего плеера
-func NewModelWithPlayer(track data.TrackMetadata, existingPlayer *player.Player) *Model {
+func NewModelWithPlayer(track data.TrackMetadata, existingPlayer *player.Player, appData *data.AppData, saveFunc func() error) *Model {
 	// Создаем прогресс-бар
 	prog := progress.New(progress.WithDefaultGradient())
 	prog.Width = 40
@@ -89,6 +94,8 @@ func NewModelWithPlayer(track data.TrackMetadata, existingPlayer *player.Player)
 		player:      existingPlayer,
 		progressBar: prog,
 		isPlaying:   false,
+		appData:     appData,
+		saveFunc:    saveFunc,
 	}
 }
 
@@ -99,6 +106,23 @@ func (m *Model) Init() tea.Cmd {
 		m.startPlayback(),
 		m.listenForProgress(),
 	)
+}
+
+// saveCurrentPosition сохраняет текущую позицию воспроизведения
+func (m *Model) saveCurrentPosition() {
+	if m.appData != nil && m.saveFunc != nil && m.player != nil {
+		currentPos := int(m.status.Current.Seconds())
+		// Сохраняем позицию только если прошло больше 5 секунд воспроизведения
+		// и не достигли конца трека (оставшееся время больше 10 секунд)
+		remaining := m.status.Total - m.status.Current
+		if currentPos > 5 && remaining.Seconds() > 10 {
+			err := m.appData.UpdateTrackPlaybackPosition(m.track.ID, currentPos)
+			if err == nil {
+				// Игнорируем ошибку сохранения, так как это не критично для воспроизведения
+				_ = m.saveFunc()
+			}
+		}
+	}
 }
 
 // Update обрабатывает сообщения и обновляет модель
@@ -113,7 +137,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "q", "esc":
+		case "q", "esc", "ctrl+c":
+			// Сохраняем позицию перед выходом
+			m.saveCurrentPosition()
 			// Останавливаем плеер и возвращаемся к списку треков
 			m.player.Stop()
 			return m, func() tea.Msg {
@@ -182,12 +208,23 @@ func (m *Model) View() string {
 	title := titleStyle.Render("🎵 Воспроизведение")
 
 	// Информация о треке
-	trackInfo := trackInfoStyle.Render(fmt.Sprintf(
+	trackInfoBuilder := fmt.Sprintf(
 		"🎤 %s\n🎵 %s\n💿 %s",
 		m.track.Artist,
 		m.track.Title,
 		m.track.Album,
-	))
+	)
+
+	// Добавляем информацию о сохраненной позиции, если есть
+	// Примечание: в текущей версии воспроизведение начинается с начала для потоковых треков
+	if m.track.PlaybackPosition > 0 {
+		trackInfoBuilder += fmt.Sprintf(
+			"\n📍 Сохраненная позиция: %s (воспроизведение с начала из-за ограничений потокового воспроизведения)",
+			utils.FormatDuration(time.Duration(m.track.PlaybackPosition)*time.Second),
+		)
+	}
+
+	trackInfo := trackInfoStyle.Render(trackInfoBuilder)
 
 	// Статус воспроизведения
 	var statusIcon string
@@ -211,7 +248,7 @@ func (m *Model) View() string {
 
 	// Элементы управления
 	controls := controlsStyle.Render(
-		"Пробел: пауза/воспроизведение • q/esc: назад к списку",
+		"Пробел: пауза/воспроизведение • q/esc/ctrl+c: назад к списку (с сохранением позиции)",
 	)
 
 	return fmt.Sprintf(
@@ -236,7 +273,32 @@ func (m *Model) Close() error {
 // startPlayback запускает воспроизведение трека
 func (m *Model) startPlayback() tea.Cmd {
 	return func() tea.Msg {
-		err := m.player.Play(&m.track)
+		// Получаем актуальную информацию о треке из данных приложения
+		var startPosition int
+		if m.appData != nil {
+			// Ищем актуальную позицию воспроизведения в данных приложения
+			for _, track := range m.appData.Tracks {
+				if track.ID == m.track.ID {
+					startPosition = track.PlaybackPosition
+					// Обновляем локальную копию трека с актуальной позицией
+					m.track.PlaybackPosition = track.PlaybackPosition
+					break
+				}
+			}
+		} else {
+			// Если нет доступа к данным приложения, используем позицию из трека
+			startPosition = m.track.PlaybackPosition
+		}
+
+		var err error
+		// Примечание: в текущей версии startPosition игнорируется плеером для потоковых треков
+		// из-за ограничений библиотеки beep при работе с потоковыми данными
+		if startPosition > 0 {
+			err = m.player.PlayFromPosition(&m.track, startPosition)
+		} else {
+			err = m.player.Play(&m.track)
+		}
+
 		if err != nil {
 			return PlaybackErrorMsg{Error: err}
 		}

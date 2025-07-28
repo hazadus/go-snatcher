@@ -11,14 +11,15 @@ import (
 
 // TrackMetadata содержит метаданные музыкального трека
 type TrackMetadata struct {
-	ID        int    `yaml:"id"`
-	Artist    string `yaml:"artist"`
-	Title     string `yaml:"title"`
-	Album     string `yaml:"album"`
-	Length    int    `yaml:"length"`     // Длина трека в секундах
-	FileSize  int64  `yaml:"file_size"`  // Размер файла в байтах
-	URL       string `yaml:"url"`        // URL трека в хранилище S3
-	SourceURL string `yaml:"source_url"` // URL источника, откуда скачан материал
+	ID               int    `yaml:"id"`
+	Artist           string `yaml:"artist"`
+	Title            string `yaml:"title"`
+	Album            string `yaml:"album"`
+	Length           int    `yaml:"length"`            // Длина трека в секундах
+	FileSize         int64  `yaml:"file_size"`         // Размер файла в байтах
+	URL              string `yaml:"url"`               // URL трека в хранилище S3
+	SourceURL        string `yaml:"source_url"`        // URL источника, откуда скачан материал
+	PlaybackPosition int    `yaml:"playback_position"` // Сохраненная позиция воспроизведения в секундах
 }
 
 // AppData содержит все данные приложения
@@ -127,4 +128,15 @@ func (d *AppData) UpdateTrack(updatedTrack TrackMetadata) error {
 		}
 	}
 	return fmt.Errorf("трека с ID %d не найдено", updatedTrack.ID)
+}
+
+// UpdateTrackPlaybackPosition обновляет позицию воспроизведения трека
+func (d *AppData) UpdateTrackPlaybackPosition(trackID int, position int) error {
+	for i := range d.Tracks {
+		if d.Tracks[i].ID == trackID {
+			d.Tracks[i].PlaybackPosition = position
+			return nil
+		}
+	}
+	return fmt.Errorf("трека с ID %d не найдено", trackID)
 }

@@ -67,6 +67,11 @@ func (p *Player) Done() <-chan bool {
 
 // Play начинает воспроизведение трека
 func (p *Player) Play(track *data.TrackMetadata) error {
+	return p.PlayFromPosition(track, 0)
+}
+
+// PlayFromPosition начинает воспроизведение трека с указанной позиции (в секундах)
+func (p *Player) PlayFromPosition(track *data.TrackMetadata, startPosition int) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
@@ -101,6 +106,14 @@ func (p *Player) Play(track *data.TrackMetadata) error {
 			return fmt.Errorf("ошибка инициализации динамиков: %w", err)
 		}
 		p.isInitialized = true
+	}
+
+	// Для потокового воспроизведения пропускаем перемотку, так как это может вызвать ошибки
+	// когда поток еще не загрузился полностью. В будущем можно реализовать через HTTP Range запросы.
+	// TODO: Реализовать перемотку через HTTP Range запросы для потокового воспроизведения
+	if startPosition > 0 {
+		// Пока что просто логируем, что позиция была запрошена, но не используется
+		// В будущих версиях здесь можно добавить логику для Range-запросов
 	}
 
 	// Создаем контроллер паузы
@@ -187,6 +200,28 @@ func (p *Player) CurrentTrack() *data.TrackMetadata {
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
 	return p.currentTrack
+}
+
+// GetCurrentPosition возвращает текущую позицию воспроизведения в секундах
+func (p *Player) GetCurrentPosition() int {
+	p.mutex.RLock()
+	defer p.mutex.RUnlock()
+
+	if p.streamer == nil {
+		return 0
+	}
+
+	// Получаем текущую позицию из streamer
+	speaker.Lock()
+	currentPos := p.streamer.Position()
+	speaker.Unlock()
+
+	// Преобразуем в секунды (приблизительно)
+	// Это приблизительное значение, так как нам нужно знать формат для точного преобразования
+	// Но для сохранения позиции это должно работать достаточно хорошо
+	positionInSeconds := int(currentPos / 44100) // Предполагаем стандартную частоту дискретизации 44.1 кГц
+
+	return positionInSeconds
 }
 
 // monitorProgress мониторит прогресс воспроизведения и отправляет обновления

@@ -19,8 +19,9 @@ const (
 
 // Application содержит все зависимости приложения
 type Application struct {
-	Config *config.Config
-	Data   *data.AppData
+	Config       *config.Config
+	Data         *data.AppData
+	dataFilePath string // Путь к файлу данных (для тестов)
 }
 
 func main() {
@@ -74,7 +75,11 @@ func (app *Application) Initialize() error {
 
 // SaveData сохраняет данные приложения
 func (app *Application) SaveData() error {
-	return app.Data.SaveData(defaultDataFilePath)
+	filePath := app.dataFilePath
+	if filePath == "" {
+		filePath = defaultDataFilePath
+	}
+	return app.Data.SaveData(filePath)
 }
 
 // createContextWithSignalHandling создает контекст с обработкой сигналов прерывания

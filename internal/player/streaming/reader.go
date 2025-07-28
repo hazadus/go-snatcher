@@ -19,6 +19,11 @@ type Reader struct {
 
 // NewReader создает новый потоковый ридер
 func NewReader(ctx context.Context, url string, bufferSize int) (*Reader, error) {
+	return NewReaderWithRange(ctx, url, bufferSize, 0)
+}
+
+// NewReaderWithRange создает новый потоковый ридер, начиная с указанной байтовой позиции
+func NewReaderWithRange(ctx context.Context, url string, bufferSize int, startByte int64) (*Reader, error) {
 	// Создаем HTTP клиент без таймаута для длительного потокового чтения
 	client := &http.Client{
 		// Убираем общий таймаут, оставляем только таймауты соединения
@@ -49,8 +54,13 @@ func NewReader(ctx context.Context, url string, bufferSize int) (*Reader, error)
 	}
 
 	// Добавляем заголовки для оптимизации потокового чтения
-	req.Header.Set("Accept-Encoding", "identity")   // Отключаем сжатие для потока
-	req.Header.Set("Range", "bytes=0-")             // Указываем, что хотим читать с начала
+	req.Header.Set("Accept-Encoding", "identity") // Отключаем сжатие для потока
+	// Устанавливаем Range заголовок в зависимости от стартовой позиции
+	if startByte > 0 {
+		req.Header.Set("Range", fmt.Sprintf("bytes=%d-", startByte))
+	} else {
+		req.Header.Set("Range", "bytes=0-") // Указываем, что хотим читать с начала
+	}
 	req.Header.Set("Connection", "keep-alive")      // Поддерживаем соединение
 	req.Header.Set("User-Agent", "go-snatcher/1.0") // Идентифицируем клиент
 

@@ -78,7 +78,7 @@ func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tracklist.TrackSelectedMsg:
 		// Переключаемся на экран плеера с выбранным треком
 		m.currentScreen = PlayerScreen
-		m.playerModel = tuiPlayer.NewModelWithPlayer(msg.Track, m.globalPlayer)
+		m.playerModel = tuiPlayer.NewModelWithPlayer(msg.Track, m.globalPlayer, m.appData, m.saveFunc)
 		return m, m.playerModel.Init()
 
 	case tracklist.TrackEditMsg:

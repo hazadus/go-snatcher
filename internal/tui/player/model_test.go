@@ -19,7 +19,7 @@ func TestNewModel(t *testing.T) {
 		URL:    "https://example.com/test.mp3",
 	}
 
-	model := NewModel(track)
+	model := NewModel(track, nil, nil)
 
 	if model == nil {
 		t.Fatal("NewModel returned nil")
@@ -76,7 +76,7 @@ func TestUpdateWindowSize(t *testing.T) {
 		Title:  "Test Title",
 	}
 
-	model := NewModel(track)
+	model := NewModel(track, nil, nil)
 
 	// Тестируем обновление размера окна
 	msg := tea.WindowSizeMsg{Width: 100, Height: 40}
@@ -101,7 +101,7 @@ func TestKeyHandling(t *testing.T) {
 		Title:  "Test Title",
 	}
 
-	model := NewModel(track)
+	model := NewModel(track, nil, nil)
 
 	// Тестируем нажатие 'q' - должно вернуть команду для GoBackMsg
 	// Создаем KeyMsg для 'q'
