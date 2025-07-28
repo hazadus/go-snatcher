@@ -13,6 +13,9 @@ test:
 lint:
   golangci-lint run ./...
 
+prepare:
+  just format lint test build cloc
+
 # Сгенерировать сообщение коммита (см. https://github.com/hazadus/gh-commitmsg)
 commitmsg:
     gh commitmsg --language russian --examples

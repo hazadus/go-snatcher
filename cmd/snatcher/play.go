@@ -13,7 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/hazadus/go-snatcher/internal/player"
-	"github.com/hazadus/go-snatcher/internal/streaming"
+	"github.com/hazadus/go-snatcher/internal/player/streaming"
 	"github.com/hazadus/go-snatcher/internal/utils"
 )
 

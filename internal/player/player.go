@@ -12,7 +12,7 @@ import (
 	"github.com/gopxl/beep/speaker"
 
 	"github.com/hazadus/go-snatcher/internal/data"
-	"github.com/hazadus/go-snatcher/internal/streaming"
+	"github.com/hazadus/go-snatcher/internal/player/streaming"
 )
 
 // Status представляет текущий статус плеера
