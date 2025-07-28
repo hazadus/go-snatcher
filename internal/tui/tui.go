@@ -31,12 +31,12 @@ func (app *App) Run() error {
 
 	// Запускаем программу
 	_, err := p.Run()
-	
+
 	// Закрываем плеер после завершения программы
 	if model.globalPlayer != nil {
 		model.globalPlayer.Close()
 	}
-	
+
 	return err
 }
 
