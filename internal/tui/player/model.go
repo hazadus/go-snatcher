@@ -78,6 +78,20 @@ func NewModel(track data.TrackMetadata) *Model {
 	}
 }
 
+// NewModelWithPlayer создает новую модель плеера с использованием существующего плеера
+func NewModelWithPlayer(track data.TrackMetadata, existingPlayer *player.Player) *Model {
+	// Создаем прогресс-бар
+	prog := progress.New(progress.WithDefaultGradient())
+	prog.Width = 40
+
+	return &Model{
+		track:       track,
+		player:      existingPlayer,
+		progressBar: prog,
+		isPlaying:   false,
+	}
+}
+
 // Init инициализирует модель и запускает воспроизведение
 func (m *Model) Init() tea.Cmd {
 	// Возвращаем команду для запуска воспроизведения

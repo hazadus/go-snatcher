@@ -4,7 +4,8 @@ package tui
 import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/hazadus/go-snatcher/internal/data"
-	"github.com/hazadus/go-snatcher/internal/tui/player"
+	"github.com/hazadus/go-snatcher/internal/player"
+	tuiPlayer "github.com/hazadus/go-snatcher/internal/tui/player"
 	"github.com/hazadus/go-snatcher/internal/tui/tracklist"
 )
 
@@ -30,6 +31,12 @@ func (app *App) Run() error {
 
 	// Запускаем программу
 	_, err := p.Run()
+	
+	// Закрываем плеер после завершения программы
+	if model.globalPlayer != nil {
+		model.globalPlayer.Close()
+	}
+	
 	return err
 }
 
@@ -46,7 +53,8 @@ type mainModel struct {
 	appData        *data.AppData
 	currentScreen  screenType
 	tracklistModel *tracklist.Model
-	playerModel    *player.Model
+	playerModel    *tuiPlayer.Model
+	globalPlayer   *player.Player // Глобальный плеер для переиспользования
 }
 
 // newMainModel создает новую главную модель
@@ -54,11 +62,15 @@ func newMainModel(appData *data.AppData) *mainModel {
 	// Создаем модель списка треков
 	tracklistModel := tracklist.NewModel(appData)
 
+	// Создаем глобальный плеер один раз
+	globalPlayer := player.NewPlayer()
+
 	return &mainModel{
 		appData:        appData,
 		currentScreen:  tracklistScreen,
 		tracklistModel: tracklistModel,
 		playerModel:    nil, // Будет создана при выборе трека
+		globalPlayer:   globalPlayer,
 	}
 }
 
@@ -77,16 +89,20 @@ func (m *mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Глобальные горячие клавиши
 		switch msg.String() {
 		case "ctrl+c":
+			// Останавливаем плеер перед выходом
+			if m.globalPlayer != nil {
+				m.globalPlayer.Stop()
+			}
 			return m, tea.Quit
 		}
 
 	case tracklist.TrackSelectedMsg:
 		// Переключаемся на экран плеера с выбранным треком
 		m.currentScreen = playerScreen
-		m.playerModel = player.NewModel(msg.Track)
+		m.playerModel = tuiPlayer.NewModelWithPlayer(msg.Track, m.globalPlayer)
 		return m, m.playerModel.Init()
 
-	case player.GoBackMsg:
+	case tuiPlayer.GoBackMsg:
 		// Возвращаемся к списку треков
 		m.currentScreen = tracklistScreen
 		m.playerModel = nil
@@ -103,7 +119,7 @@ func (m *mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.playerModel != nil {
 				var playerCmd tea.Cmd
 				updatedModel, playerCmd := m.playerModel.Update(msg)
-				if playerModel, ok := updatedModel.(*player.Model); ok {
+				if playerModel, ok := updatedModel.(*tuiPlayer.Model); ok {
 					m.playerModel = playerModel
 				}
 				return m, playerCmd
@@ -123,7 +139,7 @@ func (m *mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.playerModel != nil {
 			var playerCmd tea.Cmd
 			updatedModel, playerCmd := m.playerModel.Update(msg)
-			if playerModel, ok := updatedModel.(*player.Model); ok {
+			if playerModel, ok := updatedModel.(*tuiPlayer.Model); ok {
 				m.playerModel = playerModel
 			}
 			cmd = playerCmd
