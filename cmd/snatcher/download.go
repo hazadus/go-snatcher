@@ -175,8 +175,11 @@ func sanitizeFileName(name string) string {
 	re := regexp.MustCompile(`[<>:"/\\|?*]`)
 	name = re.ReplaceAllString(name, "_")
 
-	// Убираем лишние пробелы
+	// Убираем лишние пробелы по краям
 	name = strings.TrimSpace(name)
+
+	// Заменяем все пробелы на подчеркивания
+	name = strings.ReplaceAll(name, " ", "_")
 
 	// Ограничиваем длину имени файла
 	if len(name) > 200 {
