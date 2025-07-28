@@ -230,3 +230,11 @@ snatcher delete 3
    ```bash
    snatcher delete 5
    ```
+
+## Исользование `ffmpeg` для перекодирования в подходящий формат
+
+Пример команды:
+
+```bash
+ffmpeg -i downloaded.m4a -codec:a libmp3lame -b:a 192k output.mp3
+```
